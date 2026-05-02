@@ -11,7 +11,6 @@ description: >
 license: MIT
 metadata:
   author: custom
-  version: "6.1.0"
   domain: academic
   cluster: orchestration
   type: workflow
@@ -88,6 +87,45 @@ SESSION 3
   Phase 8  FINAL → Language polish + final output
   GATE 5: Final sign-off
 ```
+
+---
+
+## Communication Protocol
+
+The orchestrator handles two separate audiences. Do not mix them.
+
+### What the User Sees
+
+**Phase transitions** — consistent format at every phase start and end:
+```
+━━━ Phase N: [Name] ━━━
+  [1-line summary of what's starting]
+━━━ Phase N Complete ━━━
+  [Key metrics: count, size, confidence level, errors found]
+```
+
+**Progress updates** — during long phases (Phase 2 agents, Phase 7 reviewers):
+```
+[N/M agents complete...]
+```
+
+**Gate summaries** — concise decision block with relevant metrics:
+```
+── GATE N: [Name] ──
+  [3-5 key metrics]
+  [Proceed] / [Review]
+```
+
+### What the User Does NOT See
+
+The orchestrator processes these silently — they never appear in user-facing output:
+- Raw agent completion notifications (token counts, tool calls, duration, buddy comments)
+- File write confirmations ("File created at: ...")
+- Internal file paths
+- .phase-state file contents
+- Version numbers or changelog text
+
+The orchestrator reads agent outputs, extracts the relevant information, and presents only the summary metrics to the user. Internal operational details stay internal.
 
 ---
 
