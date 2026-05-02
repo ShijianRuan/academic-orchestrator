@@ -231,9 +231,8 @@ Agent tool call 2 (run_in_background: true):
   description: "academic-researcher: [sub-question]"
   prompt: |
     You are doing academic literature research. Search for: "[sub-question]"
-    - REQUIRED: First call mcp__paper-search__search_arxiv AND mcp__paper-search__search_pubmed. You MUST try these tools first.
-    - For bio/medical topics, also call mcp__paper-search__search_biorxiv + mcp__paper-search__search_medrxiv
-    - Only if ALL MCP calls fail or return empty: fall back to WebSearch + firecrawl_search + exa
+    - PRIMARY: Use mcp__paper-search__search_arxiv + mcp__paper-search__search_pubmed
+    - FALLBACK: If mcp__paper-search is NOT available, use WebSearch + firecrawl_search + exa for the same coverage
     - Focus on: peer-reviewed papers, methodology, experimental results, citations
     - Find 5-10 key papers
     - Return your findings AS TEXT in your response. Structure them as:
@@ -245,15 +244,15 @@ Agent tool call 2 (run_in_background: true):
       [patterns across papers]
       ### Research Gaps
       [what's missing]
-    - REPORT which tools you used: "[MCP: USED arxiv+pubmed]" or "[FALLBACK: reason]". Do NOT try to write files.
+    - Do NOT try to write files. Just return the text in your response.
 
 Agent tool call 3 (run_in_background: true) — MEDICAL strategy ONLY:
   subagent_type: "general-purpose"
   description: "medical-imaging: [sub-question]"
   prompt: |
     You are doing medical imaging literature research. Search for: "[sub-question]"
-    - REQUIRED: First call mcp__paper-search__search_pubmed AND mcp__paper-search__search_medrxiv AND mcp__paper-search__search_biorxiv. You MUST try these tools first.
-    - Only if ALL three MCP calls fail or return empty: fall back to firecrawl_search + WebSearch + exa
+    - PRIMARY: Use mcp__paper-search__search_pubmed + mcp__paper-search__search_medrxiv + mcp__paper-search__search_biorxiv
+    - FALLBACK: If mcp__paper-search is NOT available, use firecrawl_search + WebSearch + exa for the same coverage
     - Focus on: clinical validation, Dice/HD95 metrics, public datasets used
     - Find 5-10 key papers
     - Return your findings AS TEXT in your response. Structure them as:
@@ -261,7 +260,7 @@ Agent tool call 3 (run_in_background: true) — MEDICAL strategy ONLY:
       ### Key Papers
       1. [Paper title] ([Year]) — Method: [method], Dice: [score], Dataset: [dataset]. URL: [link]
       ...
-    - REPORT which tools you used: "[MCP: USED pubmed+medrxiv+biorxiv]" or "[FALLBACK: reason]". Do NOT try to write files.
+    - Do NOT try to write files. Just return the text in your response.
 ```
 
 ### Step 2.2: Collect Results, Write to Disk, Clear from Memory
