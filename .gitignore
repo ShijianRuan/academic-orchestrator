@@ -1,0 +1,20 @@
+# Research output (generated at runtime)
+research-output/
+
+# LaTeX build artifacts
+*.aux
+*.log
+*.out
+*.toc
+*.bbl
+*.blg
+*.synctex.gz
+*.pdf
+
+# macOS
+.DS_Store
+
+# Editor
+*.swp
+*.swo
+*~
