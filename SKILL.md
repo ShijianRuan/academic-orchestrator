@@ -231,7 +231,7 @@ Agent tool call 2 (run_in_background: true):
   description: "academic-researcher: [sub-question]"
   prompt: |
     You are doing academic literature research. Search for: "[sub-question]"
-    - PRIMARY: Use mcp__paper-search__search_papers (multi-source: arXiv, PubMed, Semantic Scholar, Crossref, OpenAlex, CORE)
+    - PRIMARY: Use mcp__paper-search__search_arxiv + mcp__paper-search__search_pubmed
     - FALLBACK: If mcp__paper-search is NOT available, use WebSearch + firecrawl_search + exa for the same coverage
     - Focus on: peer-reviewed papers, methodology, experimental results, citations
     - Find 5-10 key papers
@@ -251,7 +251,7 @@ Agent tool call 3 (run_in_background: true) — MEDICAL strategy ONLY:
   description: "medical-imaging: [sub-question]"
   prompt: |
     You are doing medical imaging literature research. Search for: "[sub-question]"
-    - PRIMARY: Use mcp__paper-search__search_papers (PubMed, medRxiv, Europe PMC, biomedical sources)
+    - PRIMARY: Use mcp__paper-search__search_pubmed + mcp__paper-search__search_medrxiv + mcp__paper-search__search_biorxiv
     - FALLBACK: If mcp__paper-search is NOT available, use firecrawl_search + WebSearch + exa for the same coverage
     - Focus on: clinical validation, Dice/HD95 metrics, public datasets used
     - Find 5-10 key papers
@@ -304,7 +304,7 @@ Read phase2-deep-research.md, phase2-academic-researcher.md, and phase2-medical-
 **Goal**: Keyword search misses papers that don't use the same terms. Citation chaining finds them through the citation graph.
 
 1. From the merged source inventory, identify the **top-5 most impactful papers** (highest citation counts, seminal works, recent highly-cited surveys)
-2. Use the `semantic-scholar` MCP tools (`mcp__aira-semanticscholar__...`) to:
+2. Use the `semantic-scholar` MCP tools (`mcp__semantic-scholar__papers-search-basic...`) to:
    - **Forward search**: Find papers that cite these top-5 papers → discover latest developments building on seminal work
    - **Backward search**: Extract the reference lists of these top-5 papers → find foundational works that keyword search may have missed
 3. For any newly discovered papers that are highly relevant, add them to the source inventory in `phase2-merged.md`
