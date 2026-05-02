@@ -41,16 +41,24 @@ Multi-phase orchestrator for academic research and writing. Does NOT do research
 
 The orchestrator cannot control when Claude Code auto-compacts. What it CAN do is ensure that compaction never loses work.
 
-**Real safety (files on disk are the source of truth):**
-- Every phase writes to `research-output/`. If auto-compaction fires mid-phase, reload the files and continue.
-- Agent results are written to disk immediately and cleared from working memory — the largest context consumers are temporary.
-- Large skills (analyzing-research-papers, peer-review) are never loaded in the main session — their instructions go inline in Agent prompts instead.
+**What auto-compaction does and doesn't affect:**
+- Compaction summarizes the CONVERSATION — it keeps a condensed version of the chat history. It does NOT touch files on disk.
+- What's lost: the verbatim discussion thread, working memory of decisions, mid-task reasoning chain.
+- What's safe: every file in `research-output/`. The draft. The merged report. The fact-check results. All on disk, all untouched.
+
+**Three layers of protection against compaction loss:**
+1. Every phase writes to disk before moving on. Even if compaction fires mid-sentence, the last checkpoint is saved.
+2. Agent results are written to disk and cleared from working memory immediately — the largest context consumers (30-50K of raw search output) never stay in the conversation.
+3. Large skills (analyzing-research-papers, peer-review) are never loaded in the main session via Skill tool. Their instructions go inline in Agent prompts instead.
+
+**What to do when compaction fires:**
+- Mid-phase (e.g., fact-checking claim #7 of 10): the claim-by-claim results are on disk. Re-read the file to find where you were. Resume.
+- Between phases: ideal. Natural boundary, no context lost that matters.
+- Don't force `/compact` just because a phase number changed. But if compaction fires naturally between phases, that's the cleanest break.
 
 **Soft guidance (not enforceable):**
-- The pipeline is split across 3 sessions because 8 phases typically won't fit in one. The exact split point depends on when auto-compaction fires, not on the phase number.
-- The token ranges below are typical estimates from testing. Use them as a rough gauge, not a constraint.
-- If compaction fires early: save what you have, `/compact`, continue. The files are safe.
-- If compaction hasn't fired: keep going. Don't `/compact` just because a phase boundary was reached.
+- The pipeline is split across ~3 sessions because 8 phases typically won't fit in one. The actual split depends on when compaction fires.
+- Token ranges below are typical estimates. Use as rough gauge, not constraint.
 
 | Session | Phases | Typical Range | Main Contributors |
 |---------|--------|--------------|-------------------|
