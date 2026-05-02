@@ -11,7 +11,7 @@ description: >
 license: MIT
 metadata:
   author: custom
-  version: "5.3.0"
+  version: "5.4.0"
   domain: academic
   cluster: orchestration
   type: workflow
@@ -105,12 +105,13 @@ SESSION 1 (research + draft) — ~60-85K tokens
   Phase 2  RESEARCH → Parallel multi-source (Agent × 3, bg)
                       → Write to files → Clear from memory → Merge
                       → Citation chaining (S2 MCP)
-  Phase 3  DRAFT    → Round 1: structure reads (5-8 surveys/taxonomies)
-                      → Round 1: write field-structure.md
-                      → Structural draft (writing skill + structure knowledge)
-                      → Round 2: detail reads (draft-driven, cap 15)
-                      → Enrich draft → ∥ prose ∥ citations ∥ data licensing
-                      → Code audit (opt) → Figure extraction (opt)
+  Phase 3  DRAFT    → Step 3.1: Round 1 structure reads (5-8 surveys)
+                      → Step 3.2: Structural draft (writing skill)
+                      → Step 3.3: Round 2 detail reads (MANDATORY, draft-driven)
+                      → Step 3.4: ∥ prose ∥ citations ∥ data licensing
+                      → Step 3.5: Merge refinements
+                      → Step 3.6: Code audit (opt)
+                      → Step 3.7: Figure extraction (opt)
   GATE 2: Review draft
   Output: research-output/*.md
   END: /compact
@@ -148,7 +149,7 @@ SESSION 3 (verify + review + final) — ~40-65K tokens
 |-------|----------------|------|-------|
 | 1 | (Agent directly) + literature-review | AskUserQuestion | Clarify scope; adopt PRISMA/PICO framework |
 | 2 | deep-research, academic-researcher, [+ medical-imaging-review] | Agent (bg, parallel) + S2 MCP | Full parallel search + citation chaining |
-| 3 | 3.1: Round 1 structure reads → 3.2: structural draft → 3.3: ∥ prose ∥ citations ∥ data licensing + Round 2 detail reads → 3.4: code audit (opt) → 3.5: figure extraction (opt) | Skill + WebFetch + Agent bg (3.2) | Serial enrich → parallel refine → merge |
+| 3 | 3.1: Round 1 structure reads → 3.2: structural draft → 3.3: Round 2 detail reads (MANDATORY) → 3.4: ∥ prose ∥ citations ∥ data licensing → 3.5: merge → 3.6: code audit (opt) → 3.7: figure extraction (opt) | Skill + WebFetch + Agent bg | Serial enrich → parallel refine → merge |
 | 4 | citation-management | Skill + WebFetch | .bib + retraction check + source quality annotation |
 | 5 | latex-paper-en | Skill | Convert to .tex (FULL only) |
 | 6 | fact-check | Skill | Verification + adversarial counter-evidence |
@@ -433,15 +434,7 @@ After generating the digest, invoke `writing-clearly-and-concisely` skill (Eleme
 
 Writing is inherently sequential at the structural level (you can't parallelize the act of composing a single narrative), but refinement passes on different dimensions CAN run in parallel. Phase 3 uses a **serial draft + parallel refinement + merge** pattern.
 
-### Step 3.1: Structural Draft (Single Writer)
-
-Invoke the primary writing skill via the Skill tool:
-- MEDICAL strategy → `medical-imaging-review`
-- ACADEMIC or GENERAL strategy → `academic-researcher`
-
-Provide as context: `research-output/phase2-merged.md` and the skill's own template. Output to `research-output/phase3-draft-v1.md` (v1 = structural draft only).
-
-### Step 3.1: Two-Round Deep Reading (Structure First, Detail Second)
+### Step 3.1: Round 1 — Structure Reads (before writing)
 
 Deep reading happens in two rounds with different purposes and scopes. Round 1 happens BEFORE writing to inform structure. Round 2 happens DURING writing to fill in details.
 
@@ -471,7 +464,7 @@ Deep reading happens in two rounds with different purposes and scopes. Round 1 h
 
 #### Round 2 — Fill in Precise Details (during writing)
 
-**Purpose**: After the draft is written, add exact numbers, method specifics, and author-stated caveats that Phase 2 summaries may have omitted or approximated.
+**Purpose**: After the structural draft exists (Step 3.2), fill in exact numbers, method specifics, and author-stated caveats that Phase 2 summaries may have omitted or approximated. This step is MANDATORY — see enforcement below.
 
 **Every paper already has** (from Phase 2 + S2 MCP):
 - Phase 2 summary (1-2 sentences) + S2 MCP TLDR + Citation count + Evidence level [A/B/C/D] + DOI/URL
@@ -489,13 +482,33 @@ Deep reading happens in two rounds with different purposes and scopes. Round 1 h
 
 **What NOT to deep-read**: [C][D] papers, papers cited once in passing, papers confirming what others already say.
 
-**How many**: No fixed number. The draft drives selection. Budget target: ~10-15K tokens of total deep-read content added to the draft. This typically means 10-15 papers (dense papers use more budget, short ones less). If the writer selects more, warn that context budget is getting tight — but don't block. The trade-off between depth and budget belongs to the writer.
+**How many**: No fixed number. The draft drives selection — more gaps mean more deep-reads, fewer gaps mean fewer. The decision belongs to the writer, but the decision PROCESS is mandatory (see Step 3.3b below). Context strategy: launch deep-read agents with `run_in_background: true` + write to `phase3-deep-reads.md` + dispose raw output (same as Phase 2 agent pattern). Main session reads only the compiled file.
 
 **Process**:
-1. Review the draft. Ask: "Which papers do I need exact details from?"
-2. Launch 2 agents in parallel: Paper Search MCP + S2 MCP + WebFetch → extract exact metrics, methods, limitations, quotes
-3. Write `research-output/phase3-deep-reads.md`, **clear raw output from memory**
-4. Enrich the draft: fill numbers, add method specifics, insert caveats
+
+#### Step 3.3a: Assess Draft Needs
+1. Review the structural draft systematically. For each section, identify gaps:
+   - Approximate numbers needing exact verification
+   - Thin method descriptions (missing architecture, training, evaluation details)
+   - Missing benchmark comparisons (no specific Dice/HD95 values)
+   - Limitations relying on summaries rather than author-stated caveats
+2. List papers that need deep-reading and what specific information is needed from each
+
+#### Step 3.3b: Execute (or Document No-Op)
+1. Launch 2 agents in parallel (background + file output + disposal):
+   - Paper Search MCP + S2 MCP + WebFetch → extract exact metrics, methods, limitations, quotes
+2. Write `research-output/phase3-deep-reads.md`
+3. Enrich the draft from this file: fill numbers, add method specifics, insert caveats
+
+#### Step 3.3c: Required Output (GATE 2 dependency)
+
+`research-output/phase3-deep-reads.md` MUST contain EITHER:
+
+**(A) Deep-read findings** — per paper: exact numbers verified, method details extracted, author-stated limitations, quotes. Then enrich the draft.
+
+**(B) Documented no-op assessment** — if the draft genuinely has sufficient detail from Phase 2 summaries, explain specifically why each gap area (exact numbers, methods, benchmarks, caveats) is adequately covered. Generic claims like "Phase 2 was sufficient" are NOT acceptable — each area must be addressed individually.
+
+**GATE 2 dependency**: Before GATE 2, verify `phase3-deep-reads.md` exists. If missing → gate blocked. Gate summary must include: "Round 2: [N] papers deep-read, [M] exact numbers verified, [K] gaps covered by Phase 2".
 
 ### Step 3.2: Structural Draft (Write with Structure Knowledge)
 
@@ -505,7 +518,7 @@ Invoke the primary writing skill via the Skill tool:
 
 Provide as context: `research-output/phase2-merged.md` + `research-output/phase3-field-structure.md`. Output to `research-output/phase3-draft-v1.md`.
 
-### Step 3.3: Parallel Refinement (3 Agents, Background)### Step 3.2: Parallel Refinement (3 Agents, Background)
+### Step 3.4: Parallel Refinement (3 Agents, Background)
 
 Launch 3 Agent tasks IN A SINGLE MESSAGE with `run_in_background: true`. Each refines the draft on a different, independent dimension:
 
@@ -552,9 +565,16 @@ Agent C — Data & Licensing Audit (medical-imaging domain focus):
     
     Also flag any dataset mentioned WITHOUT an explicit citation or source link → [UNVERIFIED-DATASET].
     Do NOT rewrite prose. Just return the data audit.
+
+**Scope note**: This audit verifies DATASET licenses and provenance only. It does NOT check:
+- **Model weight licenses** — VISTA3D's MONAI/NIM terms, Merlin's weight availability, SegVol's release terms. These are covered by the Code Repository Audit (Step 3.6) when the user requests it.
+- **Tool/dependency licenses** — MONAI, PyTorch, nnU-Net framework, NVIDIA NIM. These are infrastructure concerns, not survey content.
+- **Training data provenance beyond what the paper discloses** — if a paper says "trained on 90K CT volumes" without listing sources, the audit cannot verify origins.
+
+If model weight licenses or commercial deployment terms matter for your survey, trigger the Code Repository Audit (Step 3.6) for the relevant papers.
 ```
 
-### Step 3.3: Merge Refinements
+### Step 3.5: Merge Refinements
 
 When all 3 agents complete:
 1. Apply Agent A's language refinements to v1-enriched → `phase3-draft-v2.md`
@@ -574,9 +594,9 @@ When all 3 agents complete:
 - Comparison table for each major section (if ≥ 3 items to compare)
 - **Survey Methodology subsection**: State search period, databases/sources used, keywords, inclusion/exclusion criteria, and the multi-source cross-validation approach
 - **Citation audit passed**: All [MISSING] and [WRONG] items from Step 3.2 Agent B resolved
-- **Data & licensing audit passed**: All datasets have verified sources and license annotations; [UNVERIFIED-DATASET] items flagged as caveats in the text
+- **Data & licensing audit passed**: All datasets have verified sources and license annotations; [UNVERIFIED-DATASET] items flagged as caveats in the text. Note: this audit covers dataset licenses only. Model weight/tool licenses → see Code Repository Audit (Step 3.6)
 
-### Step 3.1c: Code Repository Audit (OPTIONAL — only if user requests reproduction/code details)
+### Step 3.6: Code Repository Audit (OPTIONAL)
 
 **Trigger**: Run when the user shows ANY intent to go beyond reading the paper: code access, implementation details, reproduction, testing, training requirements, GPU specs, pretrained weights, licensing. Example: "I want to try this", "can I run this", "what GPU", "is the code available", "how do I train this", "any pretrained weights".
 
@@ -616,7 +636,7 @@ Save to `research-output/phase3-code-audit.md`. Add key findings (GPU requiremen
 
 **Why top-3 only**: Auditing 3 repos involves 10-15 WebFetch calls. More than that adds significant context pressure and wall-clock time with diminishing returns — the top papers' repos cover the core implementation patterns.
 
-### Step 3.1d: Figure & Table Extraction from Papers (OPTIONAL)
+### Step 3.7: Figure & Table Extraction from Papers (OPTIONAL)
 
 **When to invoke** (decision matrix):
 
@@ -652,7 +672,7 @@ Save to `research-output/phase3-code-audit.md`. Add key findings (GPU requiremen
 
 **Why not use `figure-generation` skill?** It has a failed security audit (Gen Agent Trust Hub: FAIL) and 137 installs. Claude can write matplotlib code directly if a new figure is needed — no skill required.
 
-### GATE 2: Present the draft summary to the user. "Draft complete — [N] words, [M] sources. Citation audit: [N] missing, [M] misattributed (all fixed). Review before verification?" Do NOT proceed until the user confirms.
+### GATE 2: Present the draft summary to the user. "Draft complete — [N] words, [M] sources. Round 2: [N] papers deep-read, [M] exact numbers verified, [K] gaps covered by Phase 2. Citation audit: [N] missing, [M] misattributed (all fixed). Review before verification?" Do NOT proceed until the user confirms. If `phase3-deep-reads.md` does not exist, GATE 2 MUST NOT be presented — go back to Step 3.3.
 
 ### END OF SESSION 1
 
@@ -947,8 +967,67 @@ Weighted by reviewer role. If 2+ reviewers agree on the verdict → that verdict
 
 Show: consensus recommendation, score matrix, consensus issues vs individual issues. Ask: "Accept all consensus fixes? Override any individual reviewer suggestions?" Apply user's decisions. If Major Revision from 2+ reviewers: offer to loop back to Phase 3. If Reject from 2+: flag with specific reasoning.
 
-### Post-Review Revision
-Address all consensus issues (must-fix) per user's decision at Gate 4. Individual reviewer suggestions are at the user's discretion. Apply revisions to the manuscript.
+### Post-Review Revision Protocol
+
+Post-review revision is NOT ad-hoc editing. It is a structured mini-pipeline that reuses existing Phase components. The exact path depends on what the reviewers found — this is a dispatch framework, not a rigid sequence.
+
+#### Step 1: Create Revision Plan (always required)
+
+Categorize every reviewer issue and write `research-output/phase7-revision-plan.md`:
+
+| Category | Examples |
+|----------|----------|
+| **FACT** | Wrong numbers, incorrect attributions, data discrepancies |
+| **CITATION** | Missing references, misattributed citations |
+| **STRUCTURE** | Section reorganization, missing subsections, argument flow |
+| **CONTENT** | Missing method descriptions, absent benchmark comparisons, thin analysis |
+| **LANGUAGE** | Terminology errors, clarity issues, hedging overuse |
+| **DATA** | Dataset errors, licensing gaps, benchmark inaccuracies |
+
+#### Step 2: Dispatch by Issue Type
+
+Each issue type maps to an existing pipeline component:
+
+| Issue Type | Reusable Component | How |
+|-----------|-------------------|-----|
+| FACT | Phase 6 (fact-check) | Re-verify specific claims against sources |
+| CITATION | Phase 4 (citation-management) | Add/fix references in .bib and draft |
+| STRUCTURE | Phase 3.1 (structure reads) | Revise field-structure → adjust outline |
+| CONTENT | Phase 3.3 (Round 2 detail reads) | Deep-read targeted papers → add missing detail |
+| LANGUAGE | Phase 3.4 Agent A (prose) or Phase 8.2 (style) | Language refinement pass |
+| DATA | Phase 3.4 Agent C (data audit) | Re-audit specific datasets |
+
+#### Step 3: Apply Fixes with Traceability
+
+- Each fix must reference the reviewer issue number it addresses
+- **FACT fixes**: run a spot fact-check on ONLY the changed claims (not the full manuscript)
+- **CONTENT additions**: deep-read the relevant papers BEFORE writing (use Step 3.3 pattern)
+- **CITATION fixes**: add to both the draft inline citations AND references.bib
+
+#### Step 4: Verification (proportional to scope)
+
+| Fix Scope | Verification |
+|-----------|-------------|
+| FACT fixes ≥ 3 claims | Targeted fact-check on changed sections only |
+| CITATION fixes ≥ 5 refs | Re-run citation audit on new refs only |
+| STRUCTURE changes | Re-read revised sections for logical flow |
+| CONTENT additions | Verify new numbers against deep-read extracts |
+
+#### Step 5: Revision Report + Mini-Gate
+
+Write `research-output/phase7-revision-report.md`:
+- Issue → Category → Action taken → Verification result
+- Mark any reviewer issues explicitly declined with reason
+
+**Mini-gate (required before Phase 8)**: Use AskUserQuestion to present:
+"Revision complete — [N] issues addressed, [M] verified, [D] declined (with reasons). Proceed to Phase 8?"
+
+#### Loop-Back Triggers
+
+- FACT + CONTENT fixes spanning ≥3 sections → offer to loop back to full Phase 3 (re-draft affected sections)
+- FACT fixes ≥5 across the manuscript → offer full Phase 6 re-run
+- STRUCTURE changes touching ≥3 sections → offer Phase 3.1 re-assessment
+- These are OFFERS to the user, not automatic — the user decides whether to loop back or proceed with targeted fixes
 
 ---
 
@@ -1002,6 +1081,50 @@ Report to user:
 Ask: "All deliverables are ready in `research-output/`. Would you like me to: (a) walk through the verification report, (b) list any remaining unverified claims, or (c) deliver as final?" This is the last checkpoint — the user signs off on the complete package.
 
 ---
+
+## Workflow Enforcement
+
+Skills are guidance, not code. The agent can skip phases unless the design MAKES skipping detectable. Three mechanisms prevent silent phase-skipping:
+
+### 1. Gate Protocol (MUST follow — no exceptions)
+
+At EVERY gate, the agent MUST:
+- **Stop all forward progress.** Do not write any substantive file for the next phase.
+- **Present the gate output** to the user with `AskUserQuestion` or a clear text summary followed by an explicit question.
+- **Wait for explicit confirmation** — "continue", "proceed", "yes" — before doing ANY phase work. "Looks good" or silence is NOT confirmation.
+- **Record the gate passage** in `research-output/phaseN-gate-N.md` (one line: "GATE N passed: [timestamp]").
+
+If the agent catches itself summarizing results and skipping a gate — STOP. Return to the gate.
+
+### 2. Phase State Tracking
+
+Before starting ANY phase, check `research-output/` for the expected output of the PREVIOUS phase:
+- Phase 3 expects phase2-merged.md to exist
+- Phase 3.4 (refinement) expects phase3-deep-reads.md to exist (Round 2 enforcement)
+- Phase 6 expects phase3-draft.md (or manuscript.tex) to exist
+- Phase 7 expects phase6-factcheck.md to exist
+
+If the previous phase's output is missing, the agent MUST NOT proceed. It must go back and complete the missing phase.
+
+After completing each phase, write `research-output/.phase-state`:
+```
+Phase 1: done
+Phase 2: done
+Phase 2.4: done
+Phase 3: done
+GATE 2: passed
+...
+```
+
+This file is the single source of truth for "where are we in the pipeline."
+
+### 3. Gate Violation Recovery
+
+If the agent realizes it skipped a gate (e.g., summarized Phase 6 and moved toward Phase 8 without GATE 3):
+1. **Stop immediately.**
+2. **Read `.phase-state`** to find the last completed gate.
+3. **Re-present the skipped gate** to the user.
+4. Only proceed after explicit confirmation.
 
 ## Anti-Patterns
 
