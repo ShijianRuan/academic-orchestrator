@@ -232,10 +232,10 @@ Agent tool call 2 (run_in_background: true):
   prompt: |
     You are doing academic literature research. Search for: "[sub-question]"
     - REQUIRED: First call mcp__paper-search__search_arxiv(query="[sub-question]", maxResults=10) AND mcp__paper-search__search_pubmed(query="[sub-question]", max_results=10). EFFICIENCY: Issue ALL independent MCP calls in ONE message (batch them) to cut wall-clock time by 3-4x. CRITICAL: Pass a real keyword query — empty query returns daily-new-papers, not matches.
-    - For bio/medical topics, also call mcp__paper-search__search_biorxiv + mcp__paper-search__search_medrxiv with the same query
+    - Also call mcp__paper-search__search_google_scholar(query="[sub-question]") for comprehensive coverage. For bio/medical topics, call mcp__paper-search__search_biorxiv + mcp__paper-search__search_medrxiv with the same query
     - Only if ALL MCP calls fail or return empty: fall back to WebSearch + firecrawl_search + exa
     - Focus on: peer-reviewed papers, methodology, experimental results, citations
-    - Find 5-10 key papers
+    - Find papers: 5-10 (Quick overview) / 10-15 (Standard) / 15-20 (Exhaustive). Scale to the depth level from Phase 1.
     - Return your findings AS TEXT in your response. Structure them as:
       ## [Sub-question] — Academic Perspective
       ### Key Papers
@@ -252,10 +252,10 @@ Agent tool call 3 (run_in_background: true) — MEDICAL strategy ONLY:
   description: "medical-imaging: [sub-question]"
   prompt: |
     You are doing medical imaging literature research. Search for: "[sub-question]"
-    - REQUIRED: First call mcp__paper-search__search_pubmed(query="[sub-question]", max_results=10) AND mcp__paper-search__search_medrxiv(query="[sub-question]", max_results=10) AND mcp__paper-search__search_biorxiv(query="[sub-question]", max_results=10). EFFICIENCY: Issue ALL independent MCP calls in ONE message (batch them) to cut wall-clock time by 3-4x. CRITICAL: Pass a real keyword query to each — empty query returns noise.
+    - REQUIRED: First call mcp__paper-search__search_pubmed AND mcp__paper-search__search_google_scholar(query="[sub-question]")(query="[sub-question]", max_results=10) AND mcp__paper-search__search_medrxiv(query="[sub-question]", max_results=10) AND mcp__paper-search__search_biorxiv(query="[sub-question]", max_results=10). EFFICIENCY: Issue ALL independent MCP calls in ONE message (batch them) to cut wall-clock time by 3-4x. CRITICAL: Pass a real keyword query to each — empty query returns noise.
     - Only if ALL three MCP calls fail or return empty: fall back to firecrawl_search + WebSearch + exa
     - Focus on: clinical validation, Dice/HD95 metrics, public datasets used
-    - Find 5-10 key papers
+    - Find papers: 5-10 (Quick overview) / 10-15 (Standard) / 15-20 (Exhaustive). Scale to the depth level from Phase 1.
     - Return your findings AS TEXT in your response. Structure them as:
       ## [Sub-question] — Medical Imaging Perspective
       ### Key Papers
