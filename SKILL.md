@@ -11,7 +11,7 @@ description: >
 license: MIT
 metadata:
   author: custom
-  version: "6.0.0"
+  version: "6.1.0"
   domain: academic
   cluster: orchestration
   type: workflow
@@ -106,17 +106,17 @@ SESSION 3
 | 1 | Agent directly + AskUserQuestion | Clarify scope |
 | 2 | Agent (bg, parallel) x 3 + S2 MCP | Full parallel search + citation chaining |
 | 3.1 | MCP + WebFetch | Round 1 structure reads |
-| 3.2 | Agent (bg) with full writing skill instructions | Structural draft |
+| 3.2 | Skill (medical-imaging-review) | Structural draft |
 | 3.3 | Agent (bg, parallel) x 2 | Round 2 detail reads (MANDATORY) |
 | 3.4 | Agent (bg, parallel) x 3 | Prose + Citation + Data audit |
 | 3.5 | Main session | Merge refinements |
 | 3.6 | gh + WebFetch (opt) | Code repository audit |
 | 3.7 | WebFetch (opt) | Figure/table extraction |
-| 4 | Agent (bg) with full citation-management instructions | BibTeX + retraction check |
+| 4 | Skill (citation-management) | BibTeX + retraction + existence verification |
 | 5 | Skill (latex-paper-en) | LaTeX conversion (FULL only) |
 | 6 | Skill (fact-check) | Verification (KEEP in main session) |
 | 7 | Agent (bg, parallel) x 3 | 3 peer reviewers |
-| 8 | Agent (bg) + Skill | Language polish + final output |
+| 8 | Agent (bg) + Skill (citation-management) | Language polish via subagent + final .bib validation |
 
 ---
 
@@ -147,9 +147,9 @@ See `references/compaction.md` for full recovery protocol.
 
 | Session | Phases | Typical Range |
 |---------|--------|--------------|
-| 1 | 1, 2, 3 | 25-45K (was 60-85K before v6.0.0 optimizations) |
-| 2 | 4, [5] | 5-15K |
-| 3 | 6, 7, 8 | 20-40K |
+| 1 | 1, 2, 3 | 35-55K |
+| 2 | 4, [5] | 15-25K |
+| 3 | 6, 7, 8 | 20-40K (unchanged) |
 
 ---
 
