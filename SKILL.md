@@ -11,7 +11,7 @@ description: >
 license: MIT
 metadata:
   author: custom
-  version: "5.4.0"
+  version: "5.4.1"
   domain: academic
   cluster: orchestration
   type: workflow
@@ -208,6 +208,24 @@ Write `research-output/phase1-plan.md`:
 - **Skills to invoke**: [list]
 - **Output type**: [survey/systematic/proposal/paper]
 ```
+
+### Step 1.4: MCP Availability Check
+
+Before launching Phase 2 agents, verify that required MCP tools are available. The check is lightweight — one call per MCP:
+
+1. Test `mcp__paper-search__search_arxiv(query="test", max_results=1)`
+2. Test `mcp__semantic-scholar__papers-search-basic(query="test", limit=1)`
+3. Record results in `research-output/phase1-plan.md` under an "MCP Status" section
+
+**If ALL primary MCPs fail**: Warn the user with AskUserQuestion:
+"MCP servers (paper-search, semantic-scholar) are not available. Phase 2 will fall back to web search — search quality and academic coverage will degrade significantly. Continue anyway?"
+
+**If SOME fail**: Note which MCPs are missing. Adjust Phase 2 agent prompts:
+- Remove REQUIRED MCP calls for unavailable servers
+- Upgrade the FALLBACK WebSearch to PRIMARY for that agent
+- Note in the merged report which sources were unavailable
+
+**If ALL pass**: Proceed normally. Phase 2 agents will use full MCP coverage.
 
 ### GATE 1: Present the plan to the user. Do NOT proceed to Phase 2 until the user confirms.
 
@@ -428,6 +446,25 @@ Generate `research-output/research-digest.md`. All content in ONE file. The skel
 
 After generating the digest, invoke `writing-clearly-and-concisely` skill (Elements of Style) for a quick language pass on the prose sections (Executive Summary, Key Findings, Gaps). This is lightweight (~2K tokens) and catches passive voice, wordiness, and unclear phrasing. Do NOT apply to tables or source list — those are structural, not prose.
 
+### Step R.4: Lightweight Self-Check (MANDATORY)
+
+Before delivering the digest, verify the top-5 most consequential claims:
+
+1. Extract the 5 claims with the highest decision impact (hard numbers, key attributions, comparative claims)
+2. For each claim, check against `research-output/phase2-merged.md`:
+   - **Match**: claim is supported by at least one agent's findings → keep
+   - **No match**: claim cannot be verified against Phase 2 → mark with [UNVERIFIED] in the digest
+3. Add a "Verification Note" footer to the digest:
+   ```
+   **Verification Note**: N/5 key claims verified against Phase 2 multi-source research.
+   [If any UNVERIFIED]: The following claims could not be verified and should be treated 
+   as uncertain: [list]. Full fact-check (Phase 6) recommended if this digest informs 
+   publication or decisions.
+   ```
+
+This is NOT a full fact-check — it takes ~2 minutes and catches the most dangerous
+errors without significant context cost. It does not replace Phase 6 for publication-grade output.
+
 ---
 
 ## Phase 3: Multi-Pass Draft Writing (FULL pipeline only — not RESEARCH-ONLY)
@@ -506,7 +543,19 @@ Deep reading happens in two rounds with different purposes and scopes. Round 1 h
 
 **(A) Deep-read findings** — per paper: exact numbers verified, method details extracted, author-stated limitations, quotes. Then enrich the draft.
 
-**(B) Documented no-op assessment** — if the draft genuinely has sufficient detail from Phase 2 summaries, explain specifically why each gap area (exact numbers, methods, benchmarks, caveats) is adequately covered. Generic claims like "Phase 2 was sufficient" are NOT acceptable — each area must be addressed individually.
+**(B) Documented no-op assessment** — if the draft genuinely has sufficient detail from Phase 2 summaries. Generic claims like "Phase 2 was sufficient" are NOT acceptable. The assessment MUST complete this structured checklist with specific Phase 2 evidence for each category:
+
+```
+□ Exact numbers: [cite the specific Phase 2 finding that provides the exact value needed]
+□ Architecture specifics (batch size, optimizer, loss function): [cite specific finding, or state "not applicable to this survey's scope"]
+□ Benchmark comparison numbers: [cite specific Phase 2 Dice/HD95 values for each benchmark]
+□ Author-stated limitations: [quote or paraphrase the specific limitation from the Phase 2 summary]
+□ Field-anchor paper verification (papers cited ≥3 times): [cite per-paper verification from Phase 2]
+```
+
+If ANY category is answered with a generic statement rather than a specific Phase 2 citation, the assessment is INSUFFICIENT and Round 2 deep-reads MUST be executed for that category.
+
+**GATE 2 review power**: If the orchestrator judges the no-op assessment insufficient (generic claims without specific Phase 2 evidence), GATE 2 MUST reject it and require Round 2 execution before proceeding.
 
 **GATE 2 dependency**: Before GATE 2, verify `phase3-deep-reads.md` exists. If missing → gate blocked. Gate summary must include: "Round 2: [N] papers deep-read, [M] exact numbers verified, [K] gaps covered by Phase 2".
 
@@ -541,6 +590,8 @@ Agent B — Citation Completeness (literature-review perspective):
     - Are any citations attributed to the wrong paper?
     - Check against the merged research notes (phase2-merged.md) for cited-but-not-in-sources
     Return a checklist: [MISSING] for missing citations, [WRONG] for misattributed, [OK] for correct.
+    Reference claims by their SEMANTIC CONTENT (e.g., "claim: TotalSegmentator Dice 0.943"),
+    NOT by line numbers or exact sentence text. This ensures fixes can be applied after prose refinement.
     Do NOT rewrite prose. Just return the citation audit.
 
 Agent C — Data & Licensing Audit (medical-imaging domain focus):
@@ -564,6 +615,8 @@ Agent C — Data & Licensing Audit (medical-imaging domain focus):
     ```
     
     Also flag any dataset mentioned WITHOUT an explicit citation or source link → [UNVERIFIED-DATASET].
+    Reference datasets by their NAME (e.g., "dataset: AMOS"), NOT by line numbers.
+    This ensures fixes can be applied after prose refinement.
     Do NOT rewrite prose. Just return the data audit.
 
 **Scope note**: This audit verifies DATASET licenses and provenance only. It does NOT check:
@@ -576,16 +629,32 @@ If model weight licenses or commercial deployment terms matter for your survey, 
 
 ### Step 3.5: Merge Refinements
 
+**Why parallel works**: Prose, citations, and data licensing are three orthogonal dimensions.
+Agents B and C return checklists (not rewritten prose), so no prose-level merge conflicts exist.
+All 3 agents run in parallel on the same v1 draft for wall-clock speed.
+
+**Merge order** (sequential application, parallel execution):
+
 When all 3 agents complete:
-1. Apply Agent A's language refinements to v1-enriched → `phase3-draft-v2.md`
-2. Apply Agent B's citation fixes to v2 → `phase3-draft-v3.md`
-3. Apply Agent C's data notes to v3 → `phase3-draft.md` (final):
+1. **Apply Agent A's prose refinements** to v1 → `phase3-draft-v2.md`
+   (A returns full rewritten prose — this is canonical)
+2. **Apply Agent B's citation fixes** to v2 → `phase3-draft-v3.md`:
+   - For each [MISSING]/[WRONG], locate the semantically closest sentence in v2
+     (Agent A's prose changes may have moved or reworded target sentences)
+   - If a fix cannot be applied because the target claim no longer exists:
+     mark it [UNAPPLIED: reason] in the audit file — do NOT silently drop
+3. **Apply Agent C's data notes** to v3 → `phase3-draft.md` (final):
    - Add license/caveat annotations to dataset descriptions
-   - Flag any [UNVERIFIED-DATASET] items as caveats in the text
-4. Record audits: `research-output/phase3-citation-audit.md` (Agent B), `research-output/phase3-data-licensing-audit.md` (Agent C)
+   - Flag [UNVERIFIED-DATASET] items as caveats in the text
+   - Same semantic-location rule as B: find by dataset name, not line number
+4. Record audits: `research-output/phase3-citation-audit.md` (Agent B),
+   `research-output/phase3-data-licensing-audit.md` (Agent C)
 5. **Clear raw agent output from working memory after writing files**
 
-**Why parallel works here**: Prose, citations, and data licensing are three orthogonal dimensions — one changes words, one checks references, one verifies dataset provenance. They don't conflict. Running them sequentially would take 3x the wall-clock time with zero quality gain.
+**Conflict resolution priority**: Prose (A) > Citations (B) > Data (C).
+Prose is canonical — citations and data are annotations on the prose.
+If a citation or data fix cannot be cleanly applied, record it as [UNAPPLIED]
+rather than forcing it into the wrong location.
 
 ### Draft Quality Minimums
 - Topic sentences with clear claims
@@ -688,9 +757,14 @@ Save to `research-output/phase3-code-audit.md`. Add key findings (GPU requiremen
 ### Starting Session 2
 
 When the user returns for Session 2, you are in a fresh context. Immediately:
-1. Read `research-output/phase3-draft.md` and `research-output/phase2-merged.md` (these contain everything you need — do NOT re-read other Phase 2 files unless needed)
-2. Do NOT re-run any Phase 1 or 2 work
-3. Confirm to user: "Loaded draft ([N] words, [M] sources). Ready for Phase 4."
+1. **Integrity check**: Verify completion markers exist on expected files:
+   - `phase2-merged.md` must end with `<!-- PHASE_2_COMPLETE -->`
+   - `phase3-draft.md` must end with `<!-- PHASE_3_COMPLETE -->`
+   - `phase3-deep-reads.md` must exist (if not → Round 2 was skipped → run it now)
+   If any marker is missing → the file may be incomplete → re-run the producing phase
+2. Read `research-output/phase3-draft.md` and `research-output/phase2-merged.md`
+3. Do NOT re-run any Phase 1 or 2 work
+4. Confirm to user: "Integrity check passed. Loaded draft ([N] words, [M] sources). Ready for Phase 4."
 
 ---
 
@@ -796,10 +870,15 @@ Output: `manuscript.pdf` (compiled) + `manuscript.tex` (compilable source).
 ### Starting Session 3
 
 When the user returns for Session 3, you are in a fresh context. Immediately:
-1. Read `manuscript.tex` (this is your primary working file)
-2. Read `references.bib` (needed for citation verification)
-3. Do NOT re-read Phase 2/3 research files unless a specific claim needs source re-checking
-4. Confirm to user: "Loaded manuscript ([N] words, [M] references). Ready for Phase 6 verification."
+1. **Integrity check**: Verify completion markers exist on expected files:
+   - `manuscript.tex` (or `phase3-draft.md` for Markdown-only) must end with a completion marker
+   - `references.bib` must exist
+   - `phase4-citation-report.md` must exist
+   If any marker is missing → file may be incomplete → re-run the producing phase
+2. Read `manuscript.tex` (or `phase3-draft.md`)
+3. Read `references.bib`
+4. Do NOT re-read Phase 2/3 research files unless a specific claim needs source re-checking
+5. Confirm to user: "Integrity check passed. Loaded manuscript ([N] words, [M] references). Ready for Phase 6 verification."
 
 **Memory discipline for Session 3**: The fact-check skill requires the full manuscript in context. To avoid overflow:
 - Read `manuscript.tex` section by section during verification, not all at once
@@ -841,6 +920,21 @@ Fact-check verifies "is this claim supported by its cited source?" — but does 
 4. If no counter-evidence → confidence confirmed as HIGH
 
 **Output**: Append an "Adversarial Verification" section to `research-output/phase6-factcheck.md` with the results. This step takes ~5 minutes and catches the most dangerous type of error — consensus claims that the field has moved past.
+
+### Known Blind Spots
+
+Fact-check verifies "is this claim supported by its cited source?" — it does NOT verify:
+
+| Blind Spot | Risk | Mitigation |
+|-----------|------|------------|
+| **Source correctness** | Claim cites a real paper that says X, but the correct/best source says Y | Peer review (Phase 7) — domain expert catches misattributed consensus |
+| **Reasoning chain integrity** | Each claim individually verified, but A→B→C logic may still break | Peer review (Phase 7) — methodologist checks argument structure |
+| **Data staleness** | 2020 SOTA cited as current in 2026 | Adversarial verification (Phase 6) searches for counter-evidence and newer results |
+| **Negative findings omission** | Source found that supports claim, but stronger source contradicts it | Adversarial verification searches specifically for contradiction |
+
+These blind spots are inherent to claim-level verification. They are addressed by
+the multi-layered quality architecture (adversarial search + 3-reviewer peer review),
+not by the fact-check pass alone.
 
 ### GATE 3: Present fact-check summary + adversarial verification to the user.
 
@@ -1106,6 +1200,12 @@ Before starting ANY phase, check `research-output/` for the expected output of t
 
 If the previous phase's output is missing, the agent MUST NOT proceed. It must go back and complete the missing phase.
 
+After completing each phase, write `research-output/.phase-state` AND append a completion marker as the LAST line of the phase's primary output file:
+```
+<!-- PHASE_X_COMPLETE: YYYY-MM-DD -->
+```
+This marker is the integrity check: if a file is missing its marker, the file may be truncated (e.g., interrupted by compaction mid-write) and the phase must be re-run.
+
 After completing each phase, write `research-output/.phase-state`:
 ```
 Phase 1: done
@@ -1144,7 +1244,13 @@ If the agent realizes it skipped a gate (e.g., summarized Phase 6 and moved towa
 - **Source diversity**: Aim for ≥ 5 unique domains/hosts per research skill
 - **Recency**: Prefer sources from last 3 years for fast-moving fields
 - **Citation completeness**: Every factual claim traceable to a source
-- **Unverified ceiling**: If > 15% claims are unverified, confidence must be Low
+- **Unverified ceiling — contextual, not absolute**:
+  - >15% unverified AND ≥2 are hard-number claims → confidence must be Low
+  - >15% unverified but all are soft/inferential claims in a fast-moving field →
+    confidence may remain Medium with explicit caveat stating which claims are unverified
+  - The 15% is a HEURISTIC. The nature and consequence of unverified claims matters
+    more than the count. A single unverified central thesis claim is more damaging than
+    10 unverified peripheral observations.
 - **Revision loop**: If peer review says Major Revision, loop once; if still Major, flag to user
 
 ## Quick Start (for the user)
