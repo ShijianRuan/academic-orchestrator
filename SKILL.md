@@ -470,7 +470,7 @@ Deep reading happens in two rounds with different purposes and scopes. Round 1 h
 
 **What NOT to deep-read**: [C][D] papers, papers cited once in passing, papers confirming what others already say.
 
-**How many**: No fixed number. The draft drives the count, capped at 15 (context budget). Record unread papers in `research-output/phase3-not-deep-read.md` — the writer can request any later.
+**How many**: No fixed number. The draft drives selection. Budget target: ~10-15K tokens of total deep-read content added to the draft. This typically means 10-15 papers (dense papers use more budget, short ones less). If the writer selects more, warn that context budget is getting tight — but don't block. The trade-off between depth and budget belongs to the writer.
 
 **Process**:
 1. Review the draft. Ask: "Which papers do I need exact details from?"
