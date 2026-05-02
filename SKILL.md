@@ -416,45 +416,44 @@ Invoke the primary writing skill via the Skill tool:
 
 Provide as context: `research-output/phase2-merged.md` and the skill's own template. Output to `research-output/phase3-draft-v1.md` (v1 = structural draft only).
 
-### Step 3.1b: Deep-Read Key Sources (Agent-Parallel, Enrich from Primary Sources)
+### Step 3.1b: Two-Tier Source Reading (Selective Deep-Read)
 
-The structural draft (v1) was written from Phase 2 summaries — second-hand information. This step deep-reads the most important papers to fill in exact numbers, method specifics, and author-stated caveats that summaries may have omitted.
+The structural draft (v1) was written from Phase 2 summaries. Deep-reading every source would exhaust the context budget — and it's unnecessary. A two-tier approach works better: every paper comes with its Phase 2 summary, and only papers that the WRITING actually needs get deep-read.
 
-**Context management**: Deep reading loads a 4K skill if done in the main session. Instead, use the same Agent-parallel pattern as Phase 2 — launch background agents with inline instructions. The main session never loads `analyzing-research-papers`. Cost to main session: ~2K for agent launch + ~1-2K for the enriched draft diff.
+**Tier 1 — All papers have this (free, from Phase 2 + S2 MCP):**
+- Phase 2 summary finding (1-2 sentences)
+- S2 MCP TLDR (AI-generated one-liner)
+- Citation count
+- Evidence level [A/B/C/D]
+- DOI/URL
 
-**How many to deep-read?** ~30-40% of sources, minimum 8, maximum 15. Select by: [A][B] evidence level only → sort by citation count (S2 MCP) → ensure each sub-topic has ≥1 paper represented.
+This is enough for the writer to understand what the paper is about and judge whether it needs deeper reading.
 
-**Launch 2 agents in parallel** (split the paper list evenly). Each agent gets this prompt:
+**Tier 2 — Deep-read only when the draft NEEDS it.** The trigger is writing-driven, not a fixed percentage:
 
-```
-You are deep-reading academic papers to extract specific details for a survey draft.
-You have access to: Paper Search MCP, S2 MCP, and WebFetch.
+| Trigger | Why deep-read this paper |
+|---------|-------------------------|
+| The draft makes a specific claim that needs an exact number | To verify/correct the number against the original text |
+| Writing a Methods section and need architecture specifics | Phase 2 summaries rarely include batch size, optimizer, scheduler |
+| Writing a Results comparison and need benchmark numbers | Phase 2 summaries may round or approximate metrics |
+| This paper is cited by 3+ other papers in the survey | High-impact — its claims anchor the field |
+| The draft has a gap in a sub-topic | Deep-read the best paper covering that gap to fill it |
+| Author-stated limitations would strengthen the draft's Discussion | Only the original paper states its own weaknesses honestly |
 
-For each paper in your list:
-1. Paper Search MCP get_paper_details(DOI) → get metadata + abstract
-2. S2 MCP → get citation count + TLDR → confirm this paper is high-impact
-3. WebFetch the paper URL → extract these 4 things from the full text:
-   a) EXACT METRICS: Dice scores, HD95, p-values, sample sizes — specific numbers
-   b) METHOD DETAILS: architecture, training protocol, data splits, augmentations
-   c) AUTHOR-STATED LIMITATIONS: their own caveats, in their own words
-   d) 1-2 CUTABLE QUOTES: with section reference
+**What NOT to deep-read:**
+- [C] preprints or [D] grey literature — not stable enough to build specific claims on
+- Papers that merely confirm what others already say — the Phase 2 summary is sufficient
+- Papers on sub-topics the draft only mentions in passing — don't deep-read a paper you cite once in a sentence
 
-Return your findings AS TEXT. Structure per paper:
-### [Paper Title] (Author, Year)
-- **Metrics**: [exact numbers]
-- **Methods**: [architecture specifics, training details]
-- **Limitations**: [author-stated caveats]
-- **Quotes**: "[exact quote]" (Section X)
+**How many?** No fixed number. The draft drives the count. A survey with detailed Methods/Results comparison may need 15 deep-reads. A high-level overview may need 5. The important thing is that the writer can REQUEST a deep-read at any time — "I need the exact Dice for paper X" — without needing to redo the entire phase.
 
-Do NOT evaluate the paper's quality. Do NOT write prose. Just extract facts.
-Do NOT try to write files — return text inline.
-
-Paper list: [paste DOIs/URLs for 4-7 papers]
-```
-
-When both agents complete, collect their findings, write to `research-output/phase3-deep-reads.md`, then **clear raw agent output from working memory**.
-
-Finally, apply the findings to v1 → output `phase3-draft-v1-enriched.md`. Fill in missing numbers, add method specifics, insert author-stated caveats and quotes. This is a factual patch — do NOT restructure or rewrite.
+**Process:**
+1. Review the draft v1. For each section, ask: "Which papers do I need exact details from to write this section well?"
+2. Select papers that match one or more triggers above. Cap at 15 (context budget — after that, the writer has enough detail and should use Phase 2 summaries for the rest)
+3. Launch 2 agents in parallel (split the paper list). Each uses Paper Search MCP (`get_paper_details`) + S2 MCP (TLDR + citations) + WebFetch (full text) → extract exact numbers, methods, limitations, quotes
+4. Write `research-output/phase3-deep-reads.md`, **clear raw output from memory**
+5. Enrich v1 → v1-enriched: fill numbers, add method specifics, insert caveats
+6. Record which papers were NOT deep-read (with their Phase 2 summaries intact) in `research-output/phase3-not-deep-read.md` — the writer can request any of these later
 
 ### Step 3.2: Parallel Refinement (3 Agents, Background)
 
