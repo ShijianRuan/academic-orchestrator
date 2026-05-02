@@ -235,7 +235,7 @@ Agent tool call 2 (run_in_background: true):
     - Also call mcp__paper-search__search_google_scholar(query="[sub-question]") for comprehensive coverage. For bio/medical topics, call mcp__paper-search__search_biorxiv + mcp__paper-search__search_medrxiv with the same query
     - Only if ALL MCP calls fail or return empty: fall back to WebSearch + firecrawl_search + exa
     - Focus on: peer-reviewed papers, methodology, experimental results, citations
-    - Find papers: 5-10 (Quick overview) / 10-15 (Standard) / 15-20 (Exhaustive). Scale to the depth level from Phase 1.
+    - Find papers: search until returns decline. Minimum: 8 (Quick) / 12 (Standard) / 18 (Exhaustive). Scale to depth from Phase 1. The number is a FLOOR, not a ceiling — return all relevant papers, not just the minimum.
     - Return your findings AS TEXT in your response. Structure them as:
       ## [Sub-question] — Academic Perspective
       ### Key Papers
@@ -255,7 +255,7 @@ Agent tool call 3 (run_in_background: true) — MEDICAL strategy ONLY:
     - REQUIRED: First call mcp__paper-search__search_pubmed AND mcp__paper-search__search_google_scholar(query="[sub-question]")(query="[sub-question]", max_results=10) AND mcp__paper-search__search_medrxiv(query="[sub-question]", max_results=10) AND mcp__paper-search__search_biorxiv(query="[sub-question]", max_results=10). EFFICIENCY: Issue ALL independent MCP calls in ONE message (batch them) to cut wall-clock time by 3-4x. CRITICAL: Pass a real keyword query to each — empty query returns noise.
     - Only if ALL three MCP calls fail or return empty: fall back to firecrawl_search + WebSearch + exa
     - Focus on: clinical validation, Dice/HD95 metrics, public datasets used
-    - Find papers: 5-10 (Quick overview) / 10-15 (Standard) / 15-20 (Exhaustive). Scale to the depth level from Phase 1.
+    - Find papers: search until returns decline. Minimum: 8 (Quick) / 12 (Standard) / 18 (Exhaustive). Scale to depth from Phase 1. The number is a FLOOR, not a ceiling — return all relevant papers, not just the minimum.
     - Return your findings AS TEXT in your response. Structure them as:
       ## [Sub-question] — Medical Imaging Perspective
       ### Key Papers
