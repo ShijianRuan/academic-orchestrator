@@ -527,6 +527,39 @@ When all 3 agents complete:
 - **Citation audit passed**: All [MISSING] and [WRONG] items from Step 3.2 Agent B resolved
 - **Data & licensing audit passed**: All datasets have verified sources and license annotations; [UNVERIFIED-DATASET] items flagged as caveats in the text
 
+### Step 3.1c: Code Repository Audit (OPTIONAL — only if user requests reproduction/code details)
+
+When the user says "I need to reproduce", "find the code", "what GPU do I need", "implementation details", etc., run this step on the top-3 most implementation-relevant papers from the deep-read list.
+
+**Available tools** (no additional skill or MCP required):
+
+| Need | Tool | How |
+|------|------|-----|
+| Find paper's GitHub repo | `gh search repos "[paper title]" --limit 5` | Bash |
+| | or WebSearch "[paper title] github" | WebSearch |
+| Read README | WebFetch `https://raw.githubusercontent.com/.../README.md` | WebFetch |
+| Read training config | WebFetch `configs/*.yaml` or `*.json` (in repo) | WebFetch |
+| Read dependencies | WebFetch `requirements.txt` or `environment.yml` | WebFetch |
+| Check for pretrained weights | WebSearch `[model name] pretrained weights download` | WebSearch |
+| Check inference demo | WebFetch repo tree → look for `demo.py`, `inference.py`, `predict.py`, Colab link | WebFetch |
+
+**For each of the top-3 papers, extract this 8-point audit**:**
+
+```
+□ Official repo URL: [github.com/...] or "[NOT FOUND — no public code]"
+□ Pretrained weights: [URL] or "[NOT FOUND]" or "[in repo — download script]"
+□ GPU requirement: [X GB VRAM / "not stated"] — search README + configs for "GPU", "memory", "batch"
+□ Training specifics: [unique loss / custom scheduler / gradient clip value / mixed precision] — from train config
+□ Inference demo: [filename] or "[NOT FOUND — no demo script]"
+□ Dependency pinning: [pinned / unpinned] — check requirements.txt for == vs >=
+□ Data preprocessing: [script exists / documented only / not provided]
+□ License: [MIT / Apache / CC BY-NC / custom / not stated]
+```
+
+Save to `research-output/phase3-code-audit.md`. Add key findings (GPU requirements, license restrictions, pretrained weight availability) as implementation notes in the draft.
+
+**Why top-3 only**: Auditing 3 repos involves 10-15 WebFetch calls. More than that adds significant context pressure and wall-clock time with diminishing returns — the top papers' repos cover the core implementation patterns.
+
 ### GATE 2: Present the draft summary to the user. "Draft complete — [N] words, [M] sources. Citation audit: [N] missing, [M] misattributed (all fixed). Review before verification?" Do NOT proceed until the user confirms.
 
 ### END OF SESSION 1
