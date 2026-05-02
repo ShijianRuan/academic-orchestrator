@@ -80,12 +80,18 @@ RESEARCH-ONLY (single session)
 ### Full Pipeline (3 Sessions)
 
 ```
-SESSION 1 (research + draft) — ~55-80K tokens
+SESSION 1 (research + draft) — ~60-85K tokens
   Phase 1  SCOPE    → Clarify + route
   GATE 1: Confirm research plan
   Phase 2  RESEARCH → Parallel multi-source (Agent × 3, bg)
                       → Write to files → Clear from memory → Merge
-  Phase 3  DRAFT    → Academic writing
+                      → Citation chaining (S2 MCP)
+  Phase 3  DRAFT    → Round 1: structure reads (5-8 surveys/taxonomies)
+                      → Round 1: write field-structure.md
+                      → Structural draft (writing skill + structure knowledge)
+                      → Round 2: detail reads (draft-driven, cap 15)
+                      → Enrich draft → ∥ prose ∥ citations ∥ data licensing
+                      → Code audit (opt) → Figure extraction (opt)
   GATE 2: Review draft
   Output: research-output/*.md
   END: /compact
@@ -123,7 +129,7 @@ SESSION 3 (verify + review + final) — ~40-65K tokens
 |-------|----------------|------|-------|
 | 1 | (Agent directly) + literature-review | AskUserQuestion | Clarify scope; adopt PRISMA/PICO framework |
 | 2 | deep-research, academic-researcher, [+ medical-imaging-review] | Agent (bg, parallel) + S2 MCP | Full parallel search + citation chaining |
-| 3 | 3.1: domain skill → 3.1b: deep-read → 3.1c: code audit (opt) → 3.1d: figure/table extraction (opt) → 3.2: ∥ prose ∥ citations ∥ data licensing | Skill + WebFetch + Agent bg (3.2) | Serial enrich → parallel refine → merge |
+| 3 | 3.1: Round 1 structure reads → 3.2: structural draft → 3.3: ∥ prose ∥ citations ∥ data licensing + Round 2 detail reads → 3.4: code audit (opt) → 3.5: figure extraction (opt) | Skill + WebFetch + Agent bg (3.2) | Serial enrich → parallel refine → merge |
 | 4 | citation-management | Skill + WebFetch | .bib + retraction check + source quality annotation |
 | 5 | latex-paper-en | Skill | Convert to .tex (FULL only) |
 | 6 | fact-check | Skill | Verification + adversarial counter-evidence |
@@ -416,46 +422,71 @@ Invoke the primary writing skill via the Skill tool:
 
 Provide as context: `research-output/phase2-merged.md` and the skill's own template. Output to `research-output/phase3-draft-v1.md` (v1 = structural draft only).
 
-### Step 3.1b: Two-Tier Source Reading (Selective Deep-Read)
+### Step 3.1: Two-Round Deep Reading (Structure First, Detail Second)
 
-The structural draft (v1) was written from Phase 2 summaries. Deep-reading every source would exhaust the context budget — and it's unnecessary. A two-tier approach works better: every paper comes with its Phase 2 summary, and only papers that the WRITING actually needs get deep-read.
+Deep reading happens in two rounds with different purposes and scopes. Round 1 happens BEFORE writing to inform structure. Round 2 happens DURING writing to fill in details.
 
-**Tier 1 — All papers have this (free, from Phase 2 + S2 MCP):**
-- Phase 2 summary finding (1-2 sentences)
-- S2 MCP TLDR (AI-generated one-liner)
-- Citation count
-- Evidence level [A/B/C/D]
-- DOI/URL
+#### Round 1 — Understand the Field Structure (before writing)
 
-This is enough for the writer to understand what the paper is about and judge whether it needs deeper reading.
+**Purpose**: Figure out how the field is organized — method categories, taxonomy, major trends — so you can design the paper's structure intelligently.
 
-**Tier 2 — Deep-read only when the draft NEEDS it.** The trigger is writing-driven, not a fixed percentage:
+**What to read** (prioritize in this order):
+1. **Recent surveys/reviews** (2024-2025) → these already organized the field for you. S2 MCP TLDRs and Phase 2 summaries quickly reveal which papers are surveys.
+2. **Papers that propose taxonomies or classifications** → they tell you how the field divides itself.
+3. **The most comprehensive paper from each apparent method category** → breadth over depth.
 
-| Trigger | Why deep-read this paper |
-|---------|-------------------------|
-| The draft makes a specific claim that needs an exact number | To verify/correct the number against the original text |
-| Writing a Methods section and need architecture specifics | Phase 2 summaries rarely include batch size, optimizer, scheduler |
-| Writing a Results comparison and need benchmark numbers | Phase 2 summaries may round or approximate metrics |
-| This paper is cited by 3+ other papers in the survey | High-impact — its claims anchor the field |
-| The draft has a gap in a sub-topic | Deep-read the best paper covering that gap to fill it |
-| Author-stated limitations would strengthen the draft's Discussion | Only the original paper states its own weaknesses honestly |
+**Do NOT prioritize by citation count alone.** A 17K-citation paper may be a narrow technical breakthrough with no structural insight. A 50-citation survey may perfectly map the field.
 
-**What NOT to deep-read:**
-- [C] preprints or [D] grey literature — not stable enough to build specific claims on
-- Papers that merely confirm what others already say — the Phase 2 summary is sufficient
-- Papers on sub-topics the draft only mentions in passing — don't deep-read a paper you cite once in a sentence
+**How many**: 5-8 papers. This is about understanding structure, not exhaustiveness.
 
-**How many?** No fixed number. The draft drives the count. A survey with detailed Methods/Results comparison may need 15 deep-reads. A high-level overview may need 5. The important thing is that the writer can REQUEST a deep-read at any time — "I need the exact Dice for paper X" — without needing to redo the entire phase.
+**Process**:
+1. From `phase2-merged.md`, identify papers flagged as surveys/reviews or taxonomies
+2. Use S2 MCP TLDRs to quickly confirm: is this paper broad (covers the field) or narrow (covers one method)?
+3. For the selected 5-8 papers, use Paper Search MCP (`get_paper_details`) + WebFetch to read Introduction, Related Work, and Method Classification sections
+4. Record the field structure in `research-output/phase3-field-structure.md`:
+   - Method categories (what are the main families?)
+   - How the field evolved (timeline of key milestones)
+   - Which sub-topics are well-covered vs under-explored
+   - Proposed paper section structure
+5. This feeds directly into Step 3.2 (Structural Draft) — the writing skill now knows how to organize the paper
 
-**Process:**
-1. Review the draft v1. For each section, ask: "Which papers do I need exact details from to write this section well?"
-2. Select papers that match one or more triggers above. Cap at 15 (context budget — after that, the writer has enough detail and should use Phase 2 summaries for the rest)
-3. Launch 2 agents in parallel (split the paper list). Each uses Paper Search MCP (`get_paper_details`) + S2 MCP (TLDR + citations) + WebFetch (full text) → extract exact numbers, methods, limitations, quotes
-4. Write `research-output/phase3-deep-reads.md`, **clear raw output from memory**
-5. Enrich v1 → v1-enriched: fill numbers, add method specifics, insert caveats
-6. Record which papers were NOT deep-read (with their Phase 2 summaries intact) in `research-output/phase3-not-deep-read.md` — the writer can request any of these later
+#### Round 2 — Fill in Precise Details (during writing)
 
-### Step 3.2: Parallel Refinement (3 Agents, Background)
+**Purpose**: After the draft is written, add exact numbers, method specifics, and author-stated caveats that Phase 2 summaries may have omitted or approximated.
+
+**Every paper already has** (from Phase 2 + S2 MCP):
+- Phase 2 summary (1-2 sentences) + S2 MCP TLDR + Citation count + Evidence level [A/B/C/D] + DOI/URL
+
+**Deep-read a paper only when the draft NEEDS it:**
+
+| Trigger | Example |
+|---------|---------|
+| Draft needs an exact number | "achieves Dice 0.XXX" → verify the actual value |
+| Writing Methods → need architecture specifics | Batch size, optimizer — never in summaries |
+| Writing Results comparison → need benchmark numbers | Summaries may round or approximate |
+| Paper cited by 3+ others in the survey | Field anchor — its claims affect everything |
+| Draft has a gap in a sub-topic | Deep-read the best paper covering it |
+| Discussion needs author-stated limitations | Only the original paper honest states its weaknesses |
+
+**What NOT to deep-read**: [C][D] papers, papers cited once in passing, papers confirming what others already say.
+
+**How many**: No fixed number. The draft drives the count, capped at 15 (context budget). Record unread papers in `research-output/phase3-not-deep-read.md` — the writer can request any later.
+
+**Process**:
+1. Review the draft. Ask: "Which papers do I need exact details from?"
+2. Launch 2 agents in parallel: Paper Search MCP + S2 MCP + WebFetch → extract exact metrics, methods, limitations, quotes
+3. Write `research-output/phase3-deep-reads.md`, **clear raw output from memory**
+4. Enrich the draft: fill numbers, add method specifics, insert caveats
+
+### Step 3.2: Structural Draft (Write with Structure Knowledge)
+
+Invoke the primary writing skill via the Skill tool:
+- MEDICAL strategy → `medical-imaging-review`
+- ACADEMIC or GENERAL strategy → `academic-researcher`
+
+Provide as context: `research-output/phase2-merged.md` + `research-output/phase3-field-structure.md`. Output to `research-output/phase3-draft-v1.md`.
+
+### Step 3.3: Parallel Refinement (3 Agents, Background)### Step 3.2: Parallel Refinement (3 Agents, Background)
 
 Launch 3 Agent tasks IN A SINGLE MESSAGE with `run_in_background: true`. Each refines the draft on a different, independent dimension:
 
