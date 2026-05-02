@@ -574,6 +574,8 @@ Save to `research-output/phase3-code-audit.md`. Add key findings (GPU requiremen
 | Scenario | Invoke? | Reason |
 |----------|---------|--------|
 | Writing survey, need method architecture comparison | ✅ | Figures show architecture differences visually |
+| Writing Methods/Related Work section, need to describe a pipeline | ✅ | Flowcharts and schematics are the most valuable figures to extract |
+| Draft references a specific figure or needs a method's workflow explained | ✅ | Schematic extraction saves the reader from flipping to the original paper |
 | Need exact performance numbers from a paper's results table | ✅ | Paper tables have precise metrics the summary may have rounded |
 | User asks "show me Figure X" or "what does this architecture look like" | ✅ | Direct user request |
 | RESEARCH-ONLY digest | ❌ | Phase 2 summaries are sufficient |
@@ -588,11 +590,16 @@ Save to `research-output/phase3-code-audit.md`. Add key findings (GPU requiremen
 
 **What to extract** (record in `research-output/phase3-figures.md`):
 - Figure number + caption text
+- Figure type: [architecture diagram / flowchart / schematic / pipeline / results chart / table]
 - Image URL (if accessible)
-- Key takeaway from the figure (1 sentence — what does it show?)
+- Key takeaway (1 sentence — what does the figure show or prove?)
 - For tables: the full table data, preserving rows and columns
 
-**Usage in the draft**: Reference extracted figures as "As shown in [Author]'s Figure X, ..." or cite the extracted data in comparison tables. Do NOT copy the image into your manuscript — only reference and describe it.
+**Usage in the draft**:
+- **Architecture diagrams & flowcharts**: When writing a Methods or Related Work section, describe the method's architecture while referencing the extracted figure. Example: "[Author]'s pipeline (Fig. 2) consists of three stages: encoder → diffusion bridge → decoder." This gives the reader visual context without needing to flip to the original paper.
+- **Schematics & pipelines**: Use extracted pipeline diagrams to compare workflows across methods. Describe them side-by-side in your draft.
+- **Results charts & tables**: Cite extracted performance data in comparison tables. Reference the original figure for visual confirmation.
+- Important: describe and reference, do NOT embed the original image in your manuscript — that's copyright infringement unless it's CC BY licensed.
 
 **Why not use `figure-generation` skill?** It has a failed security audit (Gen Agent Trust Hub: FAIL) and 137 installs. Claude can write matplotlib code directly if a new figure is needed — no skill required.
 
