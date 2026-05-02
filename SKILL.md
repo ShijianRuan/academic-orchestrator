@@ -11,7 +11,7 @@ description: >
 license: MIT
 metadata:
   author: custom
-  version: "5.4.2"
+  version: "5.4.3"
   domain: academic
   cluster: orchestration
   type: workflow
@@ -51,10 +51,34 @@ The orchestrator cannot control when Claude Code auto-compacts. What it CAN do i
 2. Agent results are written to disk and cleared from working memory immediately — the largest context consumers (30-50K of raw search output) never stay in the conversation.
 3. Large skills (analyzing-research-papers, peer-review) are never loaded in the main session via Skill tool. Their instructions go inline in Agent prompts instead.
 
+**Progress markers for long operations**: Any operation processing >10 sequential items
+MUST write a progress marker after each item. The marker doubles as the completion
+record for that item — if the marker exists, the item is verified and on disk.
+
+| Operation | Output File | Marker Format |
+|-----------|------------|---------------|
+| Phase 2 agent search | Individual agent .md files | Full file written = complete |
+| Phase 6 fact-check | phase6-factcheck.md | `<!-- UNIT_N_OF_M_COMPLETE -->` after each section |
+| Phase 7 peer review | Individual reviewer .md files | Full file written = complete |
+| Phase 3 parallel refinement | Audit .md files | Full file written = complete |
+
+**Recovery rule**: After compaction, re-read the output file. Items WITH markers are
+done. Resume from the first item WITHOUT a marker. No reasoning-chain reconstruction needed.
+
 **What to do when compaction fires:**
-- Mid-phase (e.g., fact-checking claim #7 of 10): the claim-by-claim results are on disk. Re-read the file to find where you were. Resume.
-- Between phases: ideal. Natural boundary, no context lost that matters.
-- Don't force `/compact` just because a phase number changed. But if compaction fires naturally between phases, that's the cleanest break.
+
+- **Between phases**: Ideal. Natural boundary. Files are complete with
+  `<!-- PHASE_X_COMPLETE -->` markers. No context lost.
+
+- **Mid-phase with progress markers**: Every long operation (>10 items: claims,
+  references, sections) writes a progress marker after each item to its output file.
+  After compaction, check the output file — items with completion markers are done.
+  Resume from the first item WITHOUT a marker. The file IS the recovery state.
+
+- **Mid-phase without progress markers** (short operations, <10 items): the operation
+  is small enough to re-run from scratch. Re-read inputs and restart.
+
+- Don't force `/compact`. When it fires, trust the markers.
 
 **Soft guidance (not enforceable):**
 - The pipeline is split across ~3 sessions because 8 phases typically won't fit in one. The actual split depends on when compaction fires.
@@ -871,19 +895,40 @@ Output: `manuscript.pdf` (compiled) + `manuscript.tex` (compilable source).
 
 When the user returns for Session 3, you are in a fresh context. Immediately:
 1. **Integrity check**: Verify completion markers exist on expected files:
-   - `manuscript.tex` (or `phase3-draft.md` for Markdown-only) must end with a completion marker
+   - `phase3-draft.md` must end with a completion marker
    - `references.bib` must exist
    - `phase4-citation-report.md` must exist
    If any marker is missing → file may be incomplete → re-run the producing phase
-2. Read `manuscript.tex` (or `phase3-draft.md`)
+2. Read `phase3-draft.md` (or `phase3-draft-v1.md`)
 3. Read `references.bib`
 4. Do NOT re-read Phase 2/3 research files unless a specific claim needs source re-checking
 5. Confirm to user: "Integrity check passed. Loaded manuscript ([N] words, [M] references). Ready for Phase 6 verification."
 
-**Memory discipline for Session 3**: The fact-check skill requires the full manuscript in context. To avoid overflow:
-- Read `manuscript.tex` section by section during verification, not all at once
-- After each section is verified, write corrections immediately
-- Use `references.bib` only for citation lookups — don't hold it all in working memory
+**Memory discipline for Session 3**:
+
+Process the draft incrementally to avoid overflow:
+
+1. **Fact-check unit** = one top-level section (e.g., Section 2 "Task-Specific Baselines").
+   Target: ~500-1000 words per unit. If a section exceeds ~1500 words, split at
+   subsection boundaries (e.g., 2.1, 2.2, 2.3).
+
+2. **State passing between units**: After verifying unit N, append results immediately
+   to `phase6-factcheck.md`. Add a progress marker after each unit:
+   `<!-- UNIT_N_OF_M_COMPLETE -->`
+   If compaction fires mid-fact-check, re-read the file and resume from the first
+   unit WITHOUT a completion marker. The file IS the recovery state.
+
+3. **Cross-references between sections**: If unit N references a claim that belongs to
+   a not-yet-verified unit M, mark it as `[PENDING: Section M]` in the fact-check output.
+   After all units are verified, a final pass resolves all PENDING markers against
+   the now-verified sections.
+
+4. **Final cross-reference pass**: After the last unit, scan for `[PENDING]` markers
+   and resolve them. Write "Cross-reference pass: [N] resolved" at the end of
+   `phase6-factcheck.md`.
+
+5. **Citation lookups**: Keep `references.bib` on disk, not in working memory.
+   Look up individual entries only when verifying a specific citation claim.
 
 ---
 
@@ -907,7 +952,7 @@ Output to `research-output/phase6-factcheck.md`:
 - NOT FOUND → mark as unverified or remove
 - CONTRADICTED → remove or correct immediately
 
-Apply all corrections to `manuscript.tex`. Record changes in `research-output/phase6-corrections.md`.
+Apply all corrections to the draft (`phase3-draft.md`). Record changes in `research-output/phase6-corrections.md`.
 
 ### Adversarial Verification (Counter-Evidence Search)
 
@@ -969,7 +1014,10 @@ Agent tool call 1 (run_in_background: true):
     Do NOT try to write files. Return text inline.
     
     Manuscript:
-    [paste manuscript.tex content]
+    Draft:
+    [If draft ≤8,000 words: paste full content below]
+    [If draft >8,000 words: Read the file at research-output/phase3-draft.md]
+    [INSERT DRAFT OR FILE REFERENCE HERE]
     Fact-check report: [paste phase6-factcheck.md summary]
 
 Agent tool call 2 (run_in_background: true):
@@ -991,7 +1039,10 @@ Agent tool call 2 (run_in_background: true):
     Do NOT try to write files. Return text inline.
     
     Manuscript:
-    [paste manuscript.tex content]
+    Draft:
+    [If draft ≤8,000 words: paste full content below]
+    [If draft >8,000 words: Read the file at research-output/phase3-draft.md]
+    [INSERT DRAFT OR FILE REFERENCE HERE]
     Fact-check report: [paste phase6-factcheck.md summary]
 
 Agent tool call 3 (run_in_background: true):
@@ -1014,7 +1065,10 @@ Agent tool call 3 (run_in_background: true):
     Do NOT try to write files. Return text inline.
     
     Manuscript:
-    [paste manuscript.tex content]
+    Draft:
+    [If draft ≤8,000 words: paste full content below]
+    [If draft >8,000 words: Read the file at research-output/phase3-draft.md]
+    [INSERT DRAFT OR FILE REFERENCE HERE]
     Fact-check report: [paste phase6-factcheck.md summary]
 ```
 
@@ -1242,7 +1296,7 @@ If the agent catches itself summarizing results and skipping a gate — STOP. Re
 Before starting ANY phase, check `research-output/` for the expected output of the PREVIOUS phase:
 - Phase 3 expects phase2-merged.md to exist
 - Phase 3.4 (refinement) expects phase3-deep-reads.md to exist (Round 2 enforcement)
-- Phase 6 expects phase3-draft.md (or manuscript.tex) to exist
+- Phase 6 expects phase3-draft.md to exist
 - Phase 7 expects phase6-factcheck.md to exist
 
 If the previous phase's output is missing, the agent MUST NOT proceed. It must go back and complete the missing phase.
