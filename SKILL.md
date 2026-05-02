@@ -155,16 +155,26 @@ See `references/compaction.md` for full recovery protocol.
 
 ## Gates (Quick Reference)
 
-5 gates. Each gate MUST use AskUserQuestion and wait for explicit confirmation.
+Each gate has TWO independent layers:
+- **Layer 1 (MECHANICAL)**: File dependency checks. **NEVER skipped**, regardless of execution mode.
+- **Layer 2 (USER-FACING)**: AskUserQuestion confirmation. Can be auto-executed.
+
 Gate details: Read `references/gate-protocol.md` at the first gate you encounter.
 
-| Gate | When | Check |
-|------|------|-------|
-| GATE 1 | Phase 1 → 2 | Research plan confirmed |
-| GATE 2 | Phase 3 → Session 2 | Draft + Round 2 assessment reviewed |
-| GATE 3 | Phase 6 → 7 | Fact-check results reviewed |
-| GATE 4 | Phase 7 → revision | Peer review consensus + revision plan |
-| GATE 5 | Phase 8 → delivery | Final sign-off |
+| Gate | When | Layer 1 (never skipped) | Layer 2 (normal mode) |
+|------|------|------------------------------|----------------------|
+| GATE 1 | Phase 1 → 2 | phase1-plan.md exists | Plan confirmed |
+| GATE 2 | Phase 3 → S2 | draft + deep-reads + audits exist | Draft reviewed |
+| GATE 3 | Phase 6 → 7 | phase6-factcheck.md exists | Fact-check reviewed |
+| GATE 4 | Phase 7 → rev | reviewer files + merged exist | Consensus reviewed |
+| GATE 5 | Phase 8 → deliv | VERIFICATION_STATUS.md | Final sign-off |
+
+### Auto-Execute Mode
+
+When the user says "auto-execute" or "don't ask for confirmation":
+- Layer 2 (user prompts) is skipped. Agent logs "GATE N auto-passed" and proceeds.
+- **Layer 1 (file checks) STILL RUNS.** If a required file is missing, agent goes back and completes the producing step — no user interaction needed, but no step is ever skipped.
+- Auto-execute = "don't ask me." It does NOT mean "skip work."
 
 `.phase-state` file tracks all progress. Completion markers on output files verify integrity.
 
