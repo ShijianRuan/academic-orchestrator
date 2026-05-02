@@ -37,17 +37,26 @@ Multi-phase orchestrator for academic research and writing. Does NOT do research
 
 **Critical design decision**: The full 8-phase pipeline exceeds a single Claude Code session's context budget. Each skill invocation alone costs 5-15K tokens to load, agent results can reach 30K tokens each, and the draft + fact-check both need the full manuscript in context. The pipeline is therefore split across **3 sessions** bridged by files on disk, regardless of output format. Each session starts clean and loads only what it needs from previous outputs.
 
-## Context Budget (Typical Ranges — Soft Reference, Not Hard Limits)
+## Context Management
 
-These are rough estimates from testing, not measured benchmarks. Actual usage varies by topic complexity, search result volume, and draft length. The orchestrator cannot enforce token limits — Claude Code auto-compacts when context fills. Use these as a sanity check: "am I likely to hit compaction soon?"
+The orchestrator cannot control when Claude Code auto-compacts. What it CAN do is ensure that compaction never loses work.
+
+**Real safety (files on disk are the source of truth):**
+- Every phase writes to `research-output/`. If auto-compaction fires mid-phase, reload the files and continue.
+- Agent results are written to disk immediately and cleared from working memory — the largest context consumers are temporary.
+- Large skills (analyzing-research-papers, peer-review) are never loaded in the main session — their instructions go inline in Agent prompts instead.
+
+**Soft guidance (not enforceable):**
+- The pipeline is split across 3 sessions because 8 phases typically won't fit in one. The exact split point depends on when auto-compaction fires, not on the phase number.
+- The token ranges below are typical estimates from testing. Use them as a rough gauge, not a constraint.
+- If compaction fires early: save what you have, `/compact`, continue. The files are safe.
+- If compaction hasn't fired: keep going. Don't `/compact` just because a phase boundary was reached.
 
 | Session | Phases | Typical Range | Main Contributors |
 |---------|--------|--------------|-------------------|
-| 1 | 1, 2, 2.4, 3 | 60-85K | Orchestrator (~13K) + 3 search agents (30-50K) + writing skill (~8K) + enriched draft (~6K) + discussion |
+| 1 | 1, 2, 2.4, 3 | 60-85K | Orchestrator (~13K) + 3 search agents (30-50K) + writing skill (~8K) + enriched draft (~6K) |
 | 2 | 4, [+5 if LaTeX] | 15-35K | citation-management (~8K) + [latex-paper-en (~8K)] |
-| 3 | 6, 7, 8 | 40-65K | fact-check (~11K) + manuscript (~5K) + 3 reviewers parallel + elements-of-style (~2K) |
-
-*\*Deep-read agents (Phase 3.1b) run in background with independent contexts — near-zero cost to main session beyond agent launch and the enriched draft diff.*
+| 3 | 6, 7, 8 | 40-65K | fact-check (~11K) + manuscript (~5K) + 3 reviewers + elements-of-style (~2K) |
 
 **Rules to stay within budget:**
 - After each session: immediately run `/compact` to summarize before the next
@@ -640,9 +649,9 @@ Save to `research-output/phase3-code-audit.md`. Add key findings (GPU requiremen
 ### END OF SESSION 1
 
 **Before closing this session:**
-1. Verify these files exist on disk: `research-output/phase1-plan.md`, `research-output/phase2-merged.md`, `research-output/phase3-draft.md`
-2. Tell the user: "Session 1 complete. All research and draft are saved to `research-output/`. Run `/academic-orchestrator` again and say 'continue from Phase 4' or start Session 2 with: `claude -r "session-1-name" "continue the academic orchestrator from Phase 4"`"
-3. Run `/compact` to summarize the conversation before starting Session 2
+1. Verify all files exist on disk: `research-output/phase1-plan.md`, `research-output/phase2-merged.md`, `research-output/phase3-draft.md`
+2. Tell the user: "All research and draft saved to `research-output/`. To continue, start a new session and say 'continue from Phase 4'."
+3. Only `/compact` if context is actually full. If it hasn't fired, just end naturally — the files are safe either way.
 
 ---
 
