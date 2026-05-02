@@ -529,9 +529,9 @@ When all 3 agents complete:
 
 ### Step 3.1c: Code Repository Audit (OPTIONAL — only if user requests reproduction/code details)
 
-When the user says "I need to reproduce", "find the code", "what GPU do I need", "implementation details", etc., run this step on the top-3 most implementation-relevant papers from the deep-read list.
+**Trigger**: Run when the user shows ANY intent to go beyond reading the paper: code access, implementation details, reproduction, testing, training requirements, GPU specs, pretrained weights, licensing. Example: "I want to try this", "can I run this", "what GPU", "is the code available", "how do I train this", "any pretrained weights".
 
-**Available tools** (no additional skill or MCP required):
+**No dedicated MCP or skill exists for this purpose.** The ecosystem has repo-scan (1.7K installs) but it scans LOCAL codebases (C++/Java/iOS), not remote paper repos. Use built-in tools:
 
 | Need | Tool | How |
 |------|------|-----|
