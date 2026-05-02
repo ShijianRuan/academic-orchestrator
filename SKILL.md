@@ -123,7 +123,7 @@ SESSION 3 (verify + review + final) — ~40-65K tokens
 |-------|----------------|------|-------|
 | 1 | (Agent directly) + literature-review | AskUserQuestion | Clarify scope; adopt PRISMA/PICO framework |
 | 2 | deep-research, academic-researcher, [+ medical-imaging-review] | Agent (bg, parallel) + S2 MCP | Full parallel search + citation chaining |
-| 3 | 3.1: domain skill → 3.1b: deep-read → 3.1c: code audit (opt) → 3.1d: figures+tables (opt) → 3.2: ∥ prose ∥ citations ∥ data licensing | Skill + MCP + Agent bg (3.2) | Serial enrich → parallel refine → merge |
+| 3 | 3.1: domain skill → 3.1b: deep-read → 3.1c: code audit (opt) → 3.1d: figure/table extraction (opt) → 3.2: ∥ prose ∥ citations ∥ data licensing | Skill + WebFetch + Agent bg (3.2) | Serial enrich → parallel refine → merge |
 | 4 | citation-management | Skill + WebFetch | .bib + retraction check + source quality annotation |
 | 5 | latex-paper-en | Skill | Convert to .tex (FULL only) |
 | 6 | fact-check | Skill | Verification + adversarial counter-evidence |
@@ -567,21 +567,34 @@ Save to `research-output/phase3-code-audit.md`. Add key findings (GPU requiremen
 
 **Why top-3 only**: Auditing 3 repos involves 10-15 WebFetch calls. More than that adds significant context pressure and wall-clock time with diminishing returns — the top papers' repos cover the core implementation patterns.
 
-### Step 3.1d: Figure & Table Generation (OPTIONAL — for FULL pipeline papers)
+### Step 3.1d: Figure & Table Extraction from Papers (OPTIONAL)
 
-**Trigger**: When the draft needs comparison charts, performance tables, or method diagrams. Not for RESEARCH-ONLY (digest already has tables). Agent judges: if the draft has ≥3 comparable methods or ≥5 comparable metrics, suggest figure/table generation to the user.
+**When to invoke** (decision matrix):
 
-**Available skills** (both installed):
-- `figure-generation` (137 installs): 10 chart types (bar, line, scatter, heatmap, radar, violin, training-curve, ablation, tsne, attention). Self-healing pipeline: generates Python script → executes → captures errors → retries up to 4×. Outputs PNG (300 DPI) + PDF (vector) + LaTeX include code. Colorblind-friendly palette.
-- `table-generation` (same repo): Formatted publication-quality tables from research data. Converts JSON/CSV to LaTeX booktabs-style with bold best results.
+| Scenario | Invoke? | Reason |
+|----------|---------|--------|
+| Writing survey, need method architecture comparison | ✅ | Figures show architecture differences visually |
+| Need exact performance numbers from a paper's results table | ✅ | Paper tables have precise metrics the summary may have rounded |
+| User asks "show me Figure X" or "what does this architecture look like" | ✅ | Direct user request |
+| RESEARCH-ONLY digest | ❌ | Phase 2 summaries are sufficient |
+| Paper has no HTML version (PDF-only) | ❌ | `read_arxiv_paper` extracts text only — figures inaccessible without PDF tools (pdfplumber/PyMuPDF, too heavy) |
+| User just wants a quick overview | ❌ | Skip; offer if user later asks for details |
 
-**Process**:
-1. Identify 2-4 figures/tables needed (comparison chart, architecture timeline, performance table)
-2. For each: describe what to visualize + provide data from `phase3-deep-reads.md`
-3. Invoke `figure-generation` or `table-generation` skill
-4. Save to `figures/` directory. Reference in draft with LaTeX `\includegraphics` or Markdown image links
+**How to extract** (no external skill needed — built-in tools):
 
-**Quality**: ≥300 DPI, colorblind-friendly, labels ≥8pt, no matplotlib default titles.
+1. **For arXiv papers**: WebFetch `https://arxiv.org/html/[paperID]` — the HTML version renders figures inline with captions. Search the page for `<figure>`, `<img>`, `<figcaption>` tags.
+2. **For PMC papers**: WebFetch the PMC HTML page. Similar structure — figures and tables are embedded.
+3. **For publisher HTML pages**: WebFetch the paper URL. Extract `<img>` tags with alt text and surrounding caption paragraphs.
+
+**What to extract** (record in `research-output/phase3-figures.md`):
+- Figure number + caption text
+- Image URL (if accessible)
+- Key takeaway from the figure (1 sentence — what does it show?)
+- For tables: the full table data, preserving rows and columns
+
+**Usage in the draft**: Reference extracted figures as "As shown in [Author]'s Figure X, ..." or cite the extracted data in comparison tables. Do NOT copy the image into your manuscript — only reference and describe it.
+
+**Why not use `figure-generation` skill?** It has a failed security audit (Gen Agent Trust Hub: FAIL) and 137 installs. Claude can write matplotlib code directly if a new figure is needed — no skill required.
 
 ### GATE 2: Present the draft summary to the user. "Draft complete — [N] words, [M] sources. Citation audit: [N] missing, [M] misattributed (all fixed). Review before verification?" Do NOT proceed until the user confirms.
 
