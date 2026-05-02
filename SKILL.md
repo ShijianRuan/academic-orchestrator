@@ -202,10 +202,10 @@ Gate details: Read `references/gate-protocol.md` at the first gate you encounter
 | Gate | When | Layer 1 (never skipped) | Layer 2 (normal mode) |
 |------|------|------------------------------|----------------------|
 | GATE 1 | Phase 1 → 2 | phase1-plan.md exists | Plan confirmed |
-| GATE 2 | Phase 3 → S2 | draft + deep-reads + audits exist | Draft reviewed |
+| GATE 2 | Phase 3 → S2 | draft + deep-reads + audits. [MISSING]=0, [UNVERIFIED-SOURCE]=0 | Draft reviewed |
 | GATE 3 | Phase 6 → 7 | phase6-factcheck.md exists | Fact-check reviewed |
-| GATE 4 | Phase 7 → rev | reviewer files + merged exist | Consensus reviewed |
-| GATE 5 | Phase 8 → deliv | VERIFICATION_STATUS.md | Final sign-off |
+| GATE 4 | Phase 7 → rev | reviewer files + merged + phase7-revision-plan.md exist | Consensus + revision plan |
+| GATE 5 | Phase 8 → deliv | VERIFICATION_STATUS.md + phase8-style-check.md + PHASE_8_COMPLETE | Final sign-off |
 
 ### Auto-Execute Mode
 
