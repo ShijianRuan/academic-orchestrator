@@ -4,19 +4,23 @@ Multi-phase academic research and writing orchestrator for Claude Code. Two path
 
 ## Quick Install
 
+### Option A: From GitHub (recommended)
+
 ```bash
-# 1. Copy this entire directory to ~/.claude/skills/academic-orchestrator/
-cp -r academic-orchestrator ~/.claude/skills/
+# 1. Install the orchestrator skill via npx skills add
+npx skills add <github-username>/academic-orchestrator -g -y
 
 # 2. Install all dependency skills
 bash ~/.claude/skills/academic-orchestrator/INSTALL.sh
 
-# 3. Configure MCP servers (add to ~/.claude.json → mcpServers)
-#    Required: firecrawl, exa, semantic-scholar (see MCP_SETUP.md below)
+# 3. Configure MCP servers in ~/.claude.json (see MCP Setup below)
+#    Then restart Claude Code
 ```
 
-Or one-liner after copying the directory:
+### Option B: From local copy
+
 ```bash
+cp -r academic-orchestrator ~/.claude/skills/
 bash ~/.claude/skills/academic-orchestrator/INSTALL.sh
 ```
 
