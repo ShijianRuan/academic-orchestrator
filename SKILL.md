@@ -11,7 +11,7 @@ description: >
 license: MIT
 metadata:
   author: custom
-  version: "5.2.0"
+  version: "5.3.0"
   domain: academic
   cluster: orchestration
   type: workflow
@@ -41,16 +41,21 @@ Multi-phase orchestrator for academic research and writing. Does NOT do research
 
 | Session | Phases | Measured Token Range | Composition |
 |---------|--------|---------------------|-------------|
-| 1 | 1, 2, 2.4, 3 | 55-80K | Orchestrator (13K) + 3 agent results (30-50K) + writing skill (8K) + academic-writing skill (3K) + draft (5K) + discussion |
+| 1 | 1, 2, 2.4, 3 | 60-85K | Orchestrator (13K) + 3 search agents (30-50K) + writing skill (8K) + academic-writing (3K) + 2 deep-read agents* (0K main session, agents run bg) + enriched draft (6K) + discussion |
 | 2 | 4, [+5 if LaTeX] | 15-35K | citation-management (8K) + bib validation + retraction check + [latex-paper-en (8K) + .tex] |
 | 3 | 6, 7, 8 | 40-65K | fact-check (11K) + adversarial + manuscript (5K) + 3 reviewers parallel + elements-of-style (2K) |
+
+*\*Phase 3.1b deep-read agents run in background with independent contexts. Their skill instructions are inline in the prompt, not loaded into the main session. Cost to main session: only the agent launch messages (~2K) + the enriched draft diff (+1-2K over v1). Net Session 1 increase: ~3K.*
 
 **Rules to stay within budget:**
 - After each session: immediately run `/compact` to summarize before the next
 - Never load a skill's SKILL.md unless actually invoking it in that session
-- **Agent result disposal**: After writing agent results to files in Phase 2.2, do NOT keep raw agent output in working memory. Read only the merged file (phase2-merged.md) for subsequent phases
+- **Agent result disposal**: After writing agent results to files (Phase 2.2 and Phase 3.1b), do NOT keep raw agent output in working memory. Read only the merged/enriched files for subsequent phases
 - Session 3: fact-check the manuscript section by section, don't load all at once
-- Skill invocation costs: orchestrator (13K), literature-review (4K), medical-imaging-review (8K), academic-writing (3K), citation-management (8K), fact-check (11K), latex-paper-en (8K), peer-review (3K), elements-of-style (2K)
+- **Skill-as-Agent pattern**: for tasks that would load a large skill (analyzing-research-papers, peer-review), use Agent tool with inline instructions instead of Skill tool. The skill's methodology goes into the agent prompt — the main session never loads the skill file
+- Skill invocation costs (loaded in main session): orchestrator (13K), literature-review (4K), medical-imaging-review (8K), academic-writing (3K), citation-management (8K), fact-check (11K), latex-paper-en (8K), elements-of-style (2K)
+- Skills NOT loaded in main session (used via Agent tool): analyzing-research-papers (4K would-be), peer-review (3K would-be)
+- **MCP servers added to ~/.claude.json only take effect after restarting Claude Code.** If agents report a new MCP tool is unavailable, the user needs to restart. Agent prompts include PRIMARY/FALLBACK tool instructions so search quality degrades gracefully when MCP tools are not yet loaded
 
 ## Architecture
 
@@ -118,7 +123,7 @@ SESSION 3 (verify + review + final) — ~40-65K tokens
 |-------|----------------|------|-------|
 | 1 | (Agent directly) + literature-review | AskUserQuestion | Clarify scope; adopt PRISMA/PICO framework |
 | 2 | deep-research, academic-researcher, [+ medical-imaging-review] | Agent (bg, parallel) + S2 MCP | Full parallel search + citation chaining |
-| 3 | academic-researcher or medical-imaging-review (3.1) + academic-writing ∥ literature-review ∥ data-licensing (3.2 parallel ×3) | Skill (3.1) + Agent bg parallel (3.2) | Serial draft → parallel: prose ∥ citations ∥ data licensing → merge |
+| 3 | 3.1: domain skill → 3.1b: analyzing-research-papers + Paper Search MCP + S2 MCP (deep-read ~30% sources) → 3.2: ∥ prose ∥ citations ∥ data licensing | Skill (3.1 + 3.1b) + MCP tools + Agent bg parallel (3.2) | Summaries → skill-based deep-read → parallel refine → merge |
 | 4 | citation-management | Skill + WebFetch | .bib + retraction check + source quality annotation |
 | 5 | latex-paper-en | Skill | Convert to .tex (FULL only) |
 | 6 | fact-check | Skill | Verification + adversarial counter-evidence |
@@ -226,7 +231,8 @@ Agent tool call 2 (run_in_background: true):
   description: "academic-researcher: [sub-question]"
   prompt: |
     You are doing academic literature research. Search for: "[sub-question]"
-    - Use WebSearch for scholarly sources (arXiv, Google Scholar, PubMed)
+    - PRIMARY: Use mcp__paper-search__search_papers (multi-source: arXiv, PubMed, Semantic Scholar, Crossref, OpenAlex, CORE)
+    - FALLBACK: If mcp__paper-search is NOT available, use WebSearch + firecrawl_search + exa for the same coverage
     - Focus on: peer-reviewed papers, methodology, experimental results, citations
     - Find 5-10 key papers
     - Return your findings AS TEXT in your response. Structure them as:
@@ -245,7 +251,8 @@ Agent tool call 3 (run_in_background: true) — MEDICAL strategy ONLY:
   description: "medical-imaging: [sub-question]"
   prompt: |
     You are doing medical imaging literature research. Search for: "[sub-question]"
-    - Search arXiv and PubMed for medical imaging AI papers
+    - PRIMARY: Use mcp__paper-search__search_papers (PubMed, medRxiv, Europe PMC, biomedical sources)
+    - FALLBACK: If mcp__paper-search is NOT available, use firecrawl_search + WebSearch + exa for the same coverage
     - Focus on: clinical validation, Dice/HD95 metrics, public datasets used
     - Find 5-10 key papers
     - Return your findings AS TEXT in your response. Structure them as:
@@ -408,6 +415,46 @@ Invoke the primary writing skill via the Skill tool:
 
 Provide as context: `research-output/phase2-merged.md` and the skill's own template. Output to `research-output/phase3-draft-v1.md` (v1 = structural draft only).
 
+### Step 3.1b: Deep-Read Key Sources (Agent-Parallel, Enrich from Primary Sources)
+
+The structural draft (v1) was written from Phase 2 summaries — second-hand information. This step deep-reads the most important papers to fill in exact numbers, method specifics, and author-stated caveats that summaries may have omitted.
+
+**Context management**: Deep reading loads a 4K skill if done in the main session. Instead, use the same Agent-parallel pattern as Phase 2 — launch background agents with inline instructions. The main session never loads `analyzing-research-papers`. Cost to main session: ~2K for agent launch + ~1-2K for the enriched draft diff.
+
+**How many to deep-read?** ~30-40% of sources, minimum 8, maximum 15. Select by: [A][B] evidence level only → sort by citation count (S2 MCP) → ensure each sub-topic has ≥1 paper represented.
+
+**Launch 2 agents in parallel** (split the paper list evenly). Each agent gets this prompt:
+
+```
+You are deep-reading academic papers to extract specific details for a survey draft.
+You have access to: Paper Search MCP, S2 MCP, and WebFetch.
+
+For each paper in your list:
+1. Paper Search MCP get_paper_details(DOI) → get metadata + abstract
+2. S2 MCP → get citation count + TLDR → confirm this paper is high-impact
+3. WebFetch the paper URL → extract these 4 things from the full text:
+   a) EXACT METRICS: Dice scores, HD95, p-values, sample sizes — specific numbers
+   b) METHOD DETAILS: architecture, training protocol, data splits, augmentations
+   c) AUTHOR-STATED LIMITATIONS: their own caveats, in their own words
+   d) 1-2 CUTABLE QUOTES: with section reference
+
+Return your findings AS TEXT. Structure per paper:
+### [Paper Title] (Author, Year)
+- **Metrics**: [exact numbers]
+- **Methods**: [architecture specifics, training details]
+- **Limitations**: [author-stated caveats]
+- **Quotes**: "[exact quote]" (Section X)
+
+Do NOT evaluate the paper's quality. Do NOT write prose. Just extract facts.
+Do NOT try to write files — return text inline.
+
+Paper list: [paste DOIs/URLs for 4-7 papers]
+```
+
+When both agents complete, collect their findings, write to `research-output/phase3-deep-reads.md`, then **clear raw agent output from working memory**.
+
+Finally, apply the findings to v1 → output `phase3-draft-v1-enriched.md`. Fill in missing numbers, add method specifics, insert author-stated caveats and quotes. This is a factual patch — do NOT restructure or rewrite.
+
 ### Step 3.2: Parallel Refinement (3 Agents, Background)
 
 Launch 3 Agent tasks IN A SINGLE MESSAGE with `run_in_background: true`. Each refines the draft on a different, independent dimension:
@@ -460,7 +507,7 @@ Agent C — Data & Licensing Audit (medical-imaging domain focus):
 ### Step 3.3: Merge Refinements
 
 When all 3 agents complete:
-1. Apply Agent A's language refinements to the draft → `phase3-draft-v2.md`
+1. Apply Agent A's language refinements to v1-enriched → `phase3-draft-v2.md`
 2. Apply Agent B's citation fixes to v2 → `phase3-draft-v3.md`
 3. Apply Agent C's data notes to v3 → `phase3-draft.md` (final):
    - Add license/caveat annotations to dataset descriptions
