@@ -123,7 +123,7 @@ SESSION 3 (verify + review + final) — ~40-65K tokens
 |-------|----------------|------|-------|
 | 1 | (Agent directly) + literature-review | AskUserQuestion | Clarify scope; adopt PRISMA/PICO framework |
 | 2 | deep-research, academic-researcher, [+ medical-imaging-review] | Agent (bg, parallel) + S2 MCP | Full parallel search + citation chaining |
-| 3 | 3.1: domain skill → 3.1b: analyzing-research-papers + Paper Search MCP + S2 MCP (deep-read ~30% sources) → 3.2: ∥ prose ∥ citations ∥ data licensing | Skill (3.1 + 3.1b) + MCP tools + Agent bg parallel (3.2) | Summaries → skill-based deep-read → parallel refine → merge |
+| 3 | 3.1: domain skill → 3.1b: deep-read → 3.1c: code audit (opt) → 3.1d: figures+tables (opt) → 3.2: ∥ prose ∥ citations ∥ data licensing | Skill + MCP + Agent bg (3.2) | Serial enrich → parallel refine → merge |
 | 4 | citation-management | Skill + WebFetch | .bib + retraction check + source quality annotation |
 | 5 | latex-paper-en | Skill | Convert to .tex (FULL only) |
 | 6 | fact-check | Skill | Verification + adversarial counter-evidence |
@@ -543,10 +543,17 @@ When all 3 agents complete:
 | Check for pretrained weights | WebSearch `[model name] pretrained weights download` | WebSearch |
 | Check inference demo | WebFetch repo tree → look for `demo.py`, `inference.py`, `predict.py`, Colab link | WebFetch |
 
-**For each of the top-3 papers, extract this 8-point audit**:**
+**REPO VERIFICATION — do this first, before auditing:**
+
+1. `gh search repos "[paper title]" --limit 5` → get candidate URLs
+2. For each candidate, WebFetch its README. Verify AT LEAST 2 of: README mentions paper title/DOI, repo owner matches paper first author or lab, README describes the paper's method, repo has ≥10 stars or recent commits
+3. No candidate passes → mark "[NOT FOUND — no verified public repo]"
+4. Candidate passes → confirm with second file check (requirements.txt or setup.py exists)
+
+**8-POINT AUDIT — only on verified repos:**
 
 ```
-□ Official repo URL: [github.com/...] or "[NOT FOUND — no public code]"
+□ Official repo URL: [verified github.com/...] or "[NOT FOUND — no verified public repo]"
 □ Pretrained weights: [URL] or "[NOT FOUND]" or "[in repo — download script]"
 □ GPU requirement: [X GB VRAM / "not stated"] — search README + configs for "GPU", "memory", "batch"
 □ Training specifics: [unique loss / custom scheduler / gradient clip value / mixed precision] — from train config
@@ -559,6 +566,22 @@ When all 3 agents complete:
 Save to `research-output/phase3-code-audit.md`. Add key findings (GPU requirements, license restrictions, pretrained weight availability) as implementation notes in the draft.
 
 **Why top-3 only**: Auditing 3 repos involves 10-15 WebFetch calls. More than that adds significant context pressure and wall-clock time with diminishing returns — the top papers' repos cover the core implementation patterns.
+
+### Step 3.1d: Figure & Table Generation (OPTIONAL — for FULL pipeline papers)
+
+**Trigger**: When the draft needs comparison charts, performance tables, or method diagrams. Not for RESEARCH-ONLY (digest already has tables). Agent judges: if the draft has ≥3 comparable methods or ≥5 comparable metrics, suggest figure/table generation to the user.
+
+**Available skills** (both installed):
+- `figure-generation` (137 installs): 10 chart types (bar, line, scatter, heatmap, radar, violin, training-curve, ablation, tsne, attention). Self-healing pipeline: generates Python script → executes → captures errors → retries up to 4×. Outputs PNG (300 DPI) + PDF (vector) + LaTeX include code. Colorblind-friendly palette.
+- `table-generation` (same repo): Formatted publication-quality tables from research data. Converts JSON/CSV to LaTeX booktabs-style with bold best results.
+
+**Process**:
+1. Identify 2-4 figures/tables needed (comparison chart, architecture timeline, performance table)
+2. For each: describe what to visualize + provide data from `phase3-deep-reads.md`
+3. Invoke `figure-generation` or `table-generation` skill
+4. Save to `figures/` directory. Reference in draft with LaTeX `\includegraphics` or Markdown image links
+
+**Quality**: ≥300 DPI, colorblind-friendly, labels ≥8pt, no matplotlib default titles.
 
 ### GATE 2: Present the draft summary to the user. "Draft complete — [N] words, [M] sources. Citation audit: [N] missing, [M] misattributed (all fixed). Review before verification?" Do NOT proceed until the user confirms.
 
