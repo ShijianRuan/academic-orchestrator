@@ -176,3 +176,18 @@ skills/
 npx skills add ShijianRuan/academic-orchestrator -g -y
 bash ~/.claude/skills/academic-orchestrator/INSTALL.sh
 ```
+
+## External Skills (npx skills registry)
+
+These skills are installed via `npx skills add` and stored in Claude Code's internal registry (NOT in `~/.claude/skills/`). They are available at runtime but SKILL.md files are not accessible for bundling.
+
+| Skill | Source | Fallback if Missing |
+|-------|--------|---------------------|
+| paper-lookup | K-Dense-AI/scientific-agent-skills | Use MCP paper-search only |
+| scientific-critical-thinking | K-Dense-AI/scientific-agent-skills | Skip; fact-check alone |
+| scholar-evaluation | K-Dense-AI/scientific-agent-skills | Skip; qualitative reviews only |
+
+Install:
+```bash
+npx skills add K-Dense-AI/scientific-agent-skills -g -y
+```
