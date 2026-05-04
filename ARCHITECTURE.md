@@ -1,206 +1,176 @@
 # Academic Orchestrator v6.3.0 — Architecture
 
+## Pipeline Overview
+
+```mermaid
+flowchart TB
+    subgraph Session1["Session 1 — Research + Draft (~60K)"]
+        P1["Phase 1: Scope & Protocol"] --> G1{"GATE 1"}
+        G1 --> P2["Phase 2: 4-Agent Parallel Search"]
+        P2 --> P3["Phase 3: Multi-Pass Draft Writing"]
+        P3 --> G2{"GATE 2"}
+    end
+
+    subgraph Session2["Session 2 — Citations + Format (~25K)"]
+        P4["Phase 4: Citation Management"] --> P5["Phase 5: LaTeX Compilation"]
+    end
+
+    subgraph Session3["Session 3 — Verify + Review + Final (~50K)"]
+        P6["Phase 6: Fact-Check + Adversarial"] --> G3{"GATE 3"}
+        G3 --> P7["Phase 7: 4-Reviewer Peer Review"]
+        P7 --> P75["Phase 7.5: ScholarEval"]
+        P75 --> G4{"GATE 4"}
+        G4 --> P8["Phase 8: Final Output"]
+        P8 --> G5{"GATE 5"}
+    end
+
+    G2 --> Session2
+    Session2 --> Session3
+    G5 --> Output["manuscript.pdf + VERIFICATION_STATUS.md"]
 ```
-══════════════════════════════════════════════════════════════════════
-                        RESEARCH-ONLY PATH
-                      (Single Session, ~40K tokens)
-══════════════════════════════════════════════════════════════════════
 
-  Phase 1          Phase 2                    Phase R
-  ┌──────────┐    ┌─────────────────────┐    ┌──────────────────┐
-  │ 需求分析  │───→│ 三路并行搜索          │───→│ 格式自适应摘要     │
-  │ 领域路由  │    │                      │    │                  │
-  │          │    │ deep-research ─┐     │    │ 对比表 / 时间线   │
-  │ [门禁 1] │    │ academic-researcher ─┤ │    │ 分类列表 / 建议   │
-  └──────────┘    │ medical-imaging ─┘   │    │ 交叉验证矩阵      │
-                  │       ↓              │    │ 语言润色          │
-                  │  合并 + 交叉验证      │    │                  │
-                  │  引文追溯 (S2 MCP)   │    │ [门禁 R]         │
-                  └─────────────────────┘    └──────────────────┘
-                                                     ↓
-                                          research-digest.md (单文件)
+## Phase 2: Parallel Research Detail
 
+```mermaid
+flowchart LR
+    Plan["phase1-plan.md"] --> A1 & A2 & A3 & A4
 
-══════════════════════════════════════════════════════════════════════
-                         FULL PIPELINE
-                     (3 Sessions, ~150K tokens total)
-══════════════════════════════════════════════════════════════════════
+    subgraph Agents["4 Parallel Agents"]
+        A1["deep-research<br/>Exa + Firecrawl<br/>Web / News / Industry"]
+        A2["academic-researcher<br/>S2 + arXiv + PubMed + Scholar<br/>Multi-source Academic"]
+        A3["medical-imaging<br/>arxiv + pubmed + zotero<br/>Domain Full-text + Zotero"]
+        A4["paper-lookup<br/>10 Databases<br/>Cross-DB Verification + OA"]
+    end
 
-SESSION 1 ── 研究 + 写作 (~60K)
-─────────────────────────────────
-  Phase 1 → Phase 2 → Phase 3
+    A1 & A2 & A3 & A4 --> PRISMA["PRISMA Flow Documentation"]
+    PRISMA --> Merge["Cross-Validation & Merge"]
+    Merge --> Chain["Citation Chaining (S2 MCP)"]
+    Chain --> phase2merged["phase2-merged.md"]
+```
 
-  Phase 2: 四路并行搜索 (Agent x4, bg)
-  ┌───────────────────────────────────────────┐
-  │ deep-research  academic-researcher        │
-  │ medical-imaging  paper-lookup             │
-  │              ↓                            │
-  │   PRISMA 筛选 + 交叉验证 + 引文追溯 (S2)   │
-  └───────────────────────────────────────────┘
+## MCP Tool Strategy (v6.3)
 
-  Phase 3: 多轮写作
-  ┌─────────────────────────────────────────┐
-  │ 3.1 结构阅读 → 3.2 Skill 写结构稿         │
-  │          ↓                              │
-  │ 3.3 深度阅读注入 (MANDATORY)              │
-  │          ↓                              │
-  │ 3.4 三路并行精炼                          │
-  │   ┌──────────┬──────────┬─────────────┐ │
-  │   │ 文笔强化  │ 引用审计  │ 数据合规审计  │ │
-  │   └──────────┴──────────┴─────────────┘ │
-  │          ↓                              │
-  │ 3.5 合并修订 → 终稿                       │
-  └─────────────────────────────────────────┘
-                    ↓
-              [门禁 2] → /compact
+```mermaid
+flowchart TB
+    subgraph Principle["Design Principle"]
+        P["Skill defines tools. Orchestrator does NOT override."]
+    end
 
+    subgraph DR["deep-research"]
+        DR_T["Skill SKILL.md → Exa + Firecrawl"]
+    end
 
-SESSION 2 ── 引用 + 排版 (~25K)
-─────────────────────────────────
-  Phase 4 → Phase 5
+    subgraph AR["academic-researcher"]
+        AR_T["Orchestrator prompt → S2 + arXiv + PubMed + Scholar"]
+        AR_P["PubMed: BOTH pubmed-mcp-server AND paper-search-pubmed"]
+    end
 
-  Phase 4: 引用管理 + 验证
-  ┌─────────────────────────────────┐
-  │ Skill(citation-management)      │
-  │   + 撤稿检查 + 预印本升级         │
-  │   + Step 4.3 严重度分级验证报告   │
-  │ → references.bib                │
-  └─────────────────────────────────┘
+    subgraph MI["medical-imaging"]
+        MI_T["Skill allowed-tools → arxiv + pubmed + zotero"]
+        MI_N["NOT paper-search MCPs (was override, now fixed)"]
+    end
 
-  Phase 5: LaTeX 自愈编译
-  ┌─────────────────────────────────┐
-  │  pdflatex → 失败?               │
-  │    ├─ 提取错误 → Agent 修复      │
-  │    └─ 重试 (max 3)              │
-  │  → manuscript.pdf (可编译)       │
-  └─────────────────────────────────┘
-                    ↓
-              /compact
+    subgraph PL["paper-lookup"]
+        PL_T["Orchestrator prompt → 10 REST APIs"]
+    end
 
+    subgraph WS["WebSearch Status"]
+        WS_A["Anthropic API → ✅ works"]
+        WS_D["DeepSeek API → ❌ broken (v2.1.126 deferred tools)"]
+        WS_F["Fix: Exa MCP replaces WebSearch everywhere"]
+    end
+```
 
-SESSION 3 ── 验证 + 审稿 + 终稿 (~50K)
-───────────────────────────────────────
-  Phase 6 → Phase 7 → Phase 8
+## Tool Choice Matrix
 
-  Phase 6: 事实核查 + 对抗验证
-  ┌─────────────────────────────────┐
-  │ Skill(fact-check) ← 独立 pass   │
-  │ 逐条声明 vs 来源                 │
-  │ 对抗搜索 → 对 HIGH 声明找反证    │
-  │ Step 6.4.5: 证据等级审计         │
-  │ 修正 → 写盘                      │
-  └─────────────────────────────────┘
-              ↓
-         [门禁 3]
+| Purpose | Primary | Fallback |
+|---------|---------|----------|
+| arXiv | `arxiv-mcp-server` | Semantic Scholar |
+| PubMed | `pubmed-mcp-server` | `paper-search` PubMed |
+| Google Scholar | `paper-search` | — (unique) |
+| General Web | Exa MCP | Firecrawl (quota) |
+| Semantic Academic | Semantic Scholar | Exa web search |
 
-  Phase 7: 四人并行审稿
-  ┌──────────┬──────────┬──────────┬──────────┐
-  │ 审稿人 A  │ 审稿人 B  │ 审稿人 C  │ 审稿人 D  │
-  │ 方法学家  │ 领域专家  │ 通才编辑  │ K-Dense  │
-  └──────────┴──────────┴──────────┴──────────┘
-              ↓
-           Phase 7.5: ScholarEval 量化评分
-              ↓
-         合并共识 (2+同意 → 必改)
-              ↓
-         [门禁 4]
+## Phase 3: Multi-Pass Writing
 
-  Phase 8: 终稿
-  ┌─────────────────────────────────┐
-  │ 引用终验 → 语言润色 → 交付包     │
-  └─────────────────────────────────┘
-              ↓
-         [门禁 5] → manuscript.pdf
+```mermaid
+flowchart TB
+    Merged["phase2-merged.md"] --> R1["3.1: Structure Reads<br/>5-8 papers → field taxonomy"]
+    R1 --> R2["3.2: Structural Draft<br/>Skill(medical-imaging-review)"]
+    R2 --> R3a["3.3a: Assess Draft Needs<br/>Identify gaps → deep-read-plan.md"]
+    R3a --> R3b["3.3b: Deep Read Injection<br/>Parallel agents → deep-reads.md"]
+    R3b --> R4["3.4: Parallel Refinement (3 agents)"]
 
+    subgraph Refine["Refinement Agents"]
+        RA["Prose + Narrative"]
+        RB["Citation Audit"]
+        RC["Data Compliance"]
+    end
 
-══════════════════════════════════════════════════════════════════════
-                         MCP 工具策略 (v6.3)
-══════════════════════════════════════════════════════════════════════
+    R4 --> Refine
+    Refine --> R5["3.5: Merge → phase3-draft.md"]
+```
 
-  设计原则：Skill 定义工具，Orchestrator 不覆盖
+## Phase 6-7: Verification & Review
 
-  ┌──────────────────────────────────────────────────────────────┐
-  │ Agent            │ 工具来源          │ 主工具               │
-  ├──────────────────┼──────────────────┼──────────────────────┤
-  │ deep-research    │ skill SKILL.md   │ Exa + Firecrawl      │
-  │ academic-researcher│ orchestrator prompt│ S2+arXiv+PubMed+Scholar │
-  │ medical-imaging  │ skill allowed-tools│ arxiv+pubmed+zotero │
-  │ paper-lookup     │ orchestrator prompt│ 10-database REST    │
-  └──────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart LR
+    subgraph P6["Phase 6"]
+        FC["Skill(fact-check)<br/>4-phase verification"]
+        AV["Adversarial Search<br/>counter-evidence"]
+        GA["Evidence Grade Audit<br/>[A/B/C/D] cross-ref"]
+    end
 
-  WebSearch (Claude Code 内置):
-  - ❌ DeepSeek API: v2.1.126 deferred tools 重构后不可用
-  - ✅ Anthropic 原生 API: 正常
-  - 替代方案: Exa MCP (mcp__exa__web_search_exa)
+    subgraph P7["Phase 7"]
+        RV1["Methodologist"]
+        RV2["Domain Expert"]
+        RV3["Editor"]
+        RV4["K-Dense Peer Review"]
+    end
 
-  Tool Choice Matrix:
-  ┌────────────────────────┬──────────────────┬──────────────────┐
-  │ 用途                   │ 主工具            │ 备选             │
-  ├────────────────────────┼──────────────────┼──────────────────┤
-  │ arXiv 搜索             │ arxiv-mcp-server │ S2 (覆盖所有 arXiv)│
-  │ PubMed 搜索            │ pubmed-mcp-server│ paper-search PubMed│
-  │ Google Scholar         │ paper-search     │ 无替代             │
-  │ 通用网页搜索           │ Exa MCP          │ Firecrawl (配额)  │
-  │ 语义学术搜索           │ Semantic Scholar │ Exa web search    │
-  └────────────────────────┴──────────────────┴──────────────────┘
+    P6 --> P7
+    RV1 & RV2 & RV3 & RV4 --> Consensus["Merge Consensus<br/>2+ agree → required fix"]
+    Consensus --> ScholarEval["ScholarEval 8-dimension"]
+```
 
+## Skill Dispatch Matrix
 
-══════════════════════════════════════════════════════════════════════
-                      质量保障层
-══════════════════════════════════════════════════════════════════════
+| Phase | Skill | Method |
+|-------|-------|--------|
+| 1 | literature-review | Skill + Agent |
+| 2 | deep-research, academic-researcher, medical-imaging, paper-lookup | Agent (bg) x4 |
+| 3.2 | medical-imaging-review | Skill (writing) |
+| 3.4 | — | Agent (bg) x3 (prose, citation, data) |
+| 4 | citation-management | Skill + orchestrator additions |
+| 5 | latex-paper-en | Skill + Bash |
+| 6 | fact-check + scientific-critical-thinking | Skill + orchestrator additions |
+| 7 | peer-review (4 reviewers) | Agent (bg) x4 |
+| 7.5 | scholar-evaluation | Skill |
+| 8 | citation-management + writing-clearly-and-concisely | Skill + Agent (bg) |
 
-  ┌──────────────┬──────────────┬──────────────┬──────────────┐
-  │  搜索质量     │  写作质量     │  验证质量     │  排版质量     │
-  ├──────────────┼──────────────┼──────────────┼──────────────┤
-  │ 四源并行      │ 领域结构模板   │ 独立事实核查   │ 自愈编译循环   │
-  │ 交叉验证      │ 三路并行精炼   │ 对抗反证搜索   │ max_retries=3 │
-  │ 引文追溯(S2)  │ 深度阅读注入   │ 证据等级审计   │ 投稿格式诊断   │
-  │ 证据分级[A-D] │ 引用完整性审计 │ 四人并行审稿   │              │
-  │ PRISMA框架   │ 数据合规审计   │ ScholarEval    │              │
-  └──────────────┴──────────────┴──────────────┴──────────────┘
+## Bundled Skills
 
+```
+skills/
+├── deep-research/          — Exa + Firecrawl web search
+├── academic-researcher/    — Paper analysis methodology
+├── medical-imaging-review/ — 7-phase medical imaging writing
+├── citation-management/    — BibTeX + validation
+├── fact-check/             — 4-phase verification
+├── peer-review/            — Structured manuscript review
+├── literature-review/      — Systematic review methodology
+├── writing-clearly-and-concisely/ — Strunk language polish
+└── latex-paper-en/         — LaTeX compilation + formatting
+```
 
-══════════════════════════════════════════════════════════════════════
-                      Skill 调用矩阵
-══════════════════════════════════════════════════════════════════════
+## Compatibility
 
-  阶段  Skill                           调用方式
-  ──── ───────────────────────────────  ──────────────────
-   1   (Agent) + literature-review      AskUserQuestion + Skill
-   2   4 Agent 并行 + PRISMA + 引文追溯   Agent (bg) x4
-   3   medical-imaging-review + 3 精炼   Skill + Agent (bg) x3
-   4   citation-management + 验证报告    Skill + orchestrator additions
-   5   latex-paper-en + 自愈编译        Skill + Bash
-   6   fact-check + 对抗验证 + 等级审计  Skill + orchestrator additions
-   7   4 Agent 并行审稿 + ScholarEval   Agent (bg) x4 + Skill
-   8   引用终验 + Elements of Style     Skill + Agent (bg)
+| Model | WebSearch | MCP Tools | Notes |
+|-------|-----------|-----------|-------|
+| Anthropic (Claude) | ✅ | ✅ | Full native support |
+| DeepSeek (v4-pro) | ❌ | ✅ | WebSearch replaced by Exa MCP |
 
-  Skill 文件部署:
-  所有引用 skill 的 SKILL.md 及 references/ 均已复制到 skills/ 目录下：
-  - skills/deep-research/
-  - skills/academic-researcher/
-  - skills/medical-imaging-review/
-  - skills/citation-management/
-  - skills/fact-check/
-  - skills/peer-review/
-  - skills/literature-review/
-  - skills/writing-clearly-and-concisely/
-
-## 两条路径
-
-| 路径 | 阶段数 | Session | 产出 | 适合 |
-|------|--------|---------|------|------|
-| RESEARCH-ONLY | 3 (1→2→R) | 1 | 研究摘要 (单文件) | 快速调研、数据收集 |
-| FULL PIPELINE | 8 (1→8) | 3 | 论文 PDF + 验证报告 | 正式论文、综述 |
-
-## 兼容性说明
-
-| 模型 | WebSearch | MCP 工具 | 状态 |
-|------|-----------|---------|------|
-| Anthropic (Claude) | ✅ | ✅ | 全功能 |
-| DeepSeek (v4-pro) | ❌ | ✅ | WebSearch 需用 Exa 替代 |
-
-## 安装
+## Installation
 
 ```bash
 npx skills add ShijianRuan/academic-orchestrator -g -y
