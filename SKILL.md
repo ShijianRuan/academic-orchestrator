@@ -44,7 +44,32 @@ When you start a phase, **Read the corresponding reference file** for detailed i
 > Before starting Phase N, read `references/phase{N}-*.md`.
 > Do NOT pre-read reference files for future phases. Only load what you need now.
 
-Supporting protocols (compaction recovery, quality heuristics, post-review revision, gate enforcement) are also in `references/` — load them when the relevant situation arises, not upfront.
+**Gate enforcement is mechanical, not manual.** At every gate, before presenting results to the user, run:
+
+```bash
+bash scripts/validate.sh <GATE> research-output/
+```
+
+Script exit 0 = proceed. Exit non-0 = fix all FAIL items first, re-run, repeat until clean. This is NOT optional — it replaces manual Layer 1 file checking. The script catches what human attention misses.
+
+Supporting protocols (compaction recovery, quality heuristics, post-review revision, gate enforcement, anti-laziness) are also in `references/` — load them when the relevant situation arises, not upfront.
+
+---
+
+## Scripts
+
+The orchestrator ships with a mechanical validation script:
+
+```
+scripts/validate.sh <GATE> <research-output-dir>
+```
+
+Run this at EVERY gate before manual Layer 1 checks. It catches:
+- Missing files, empty files, content-pattern violations
+- Phase-state topological consistency, completion marker audit, cross-reference counts
+- All 5 gates + phase state + markers + crossref (use `all`)
+
+Exit 0 = mechanical checks pass. Exit non-0 = fix FAIL items, re-run.
 
 ---
 
@@ -67,7 +92,7 @@ Output: research-output/research-digest.md
 SESSION 1
   Phase 1  SCOPE → Clarify + route + MCP check
   GATE 1: Confirm plan
-  Phase 2  RESEARCH → Parallel multi-source (Agent x 3, bg) → Merge → Citation chaining
+  Phase 2  RESEARCH → Parallel multi-source (Agent x 4, bg) → Merge → Citation chaining
   Phase 3  DRAFT → Round 1 structure reads → Structural draft → Round 2 detail reads
                    (MANDATORY) → Parallel refinement → Merge
   GATE 2: Review draft
@@ -141,20 +166,21 @@ The orchestrator reads agent outputs, extracts the relevant information, and pre
 ### Full Pipeline
 | Phase | Method | Notes |
 |-------|--------|-------|
-| 1 | Agent directly + AskUserQuestion | Clarify scope |
-| 2 | Agent (bg, parallel) x 3 + S2 MCP | Full parallel search + citation chaining |
+| 1 | Agent directly + AskUserQuestion + Skill(literature-review) | Scope protocol + feasibility probe + scope boundary (literature-review Skill invoked in Step 1.4) |
+| 2 | Agent (bg, parallel) x 4 + S2 MCP | Full parallel search + Paper Lookup + citation chaining + PRISMA flow documentation (Step 2.3a). Prompt includes §2 RQs + §4 Search Strategy + §6 MCP status from phase1-plan |
 | 3.1 | MCP + WebFetch | Round 1 structure reads |
 | 3.2 | Skill (medical-imaging-review) | Structural draft |
 | 3.3 | Agent (bg, parallel) x 2 | Round 2 detail reads (MANDATORY) |
 | 3.4 | Agent (bg, parallel) x 3 | Prose + Citation + Data audit |
-| 3.5 | Main session | Merge refinements |
+| 3.5 | Main session | Merge refinements (incl. Deep Read Injection) |
 | 3.6 | gh + WebFetch (opt) | Code repository audit |
 | 3.7 | WebFetch (opt) | Figure/table extraction |
-| 4 | Skill (citation-management) | BibTeX + retraction + existence verification |
+| 4 | Skill (citation-management) | BibTeX + retraction + existence verification + severity-graded validation report (Step 4.3) |
 | 5 | Skill (latex-paper-en) | LaTeX conversion (FULL only) |
-| 6 | Skill (fact-check) | Verification (KEEP in main session) |
-| 7 | Agent (bg, parallel) x 3 | 3 peer reviewers |
-| 8 | Agent (bg) + Skill (citation-management) | Language polish via subagent + final .bib validation |
+| 6 | Skill (fact-check) + Skill (scientific-critical-thinking) | Verification + GRADE/evidence-quality audit |
+| 7 | Agent (bg, parallel) x 4 | 4 peer reviewers (Methodologist + Domain + Editor + K-Dense Peer Review) |
+| 7.5 | Skill (scholar-evaluation) | Post-review quantitative scoring (8-dimension ScholarEval) — MANDATORY |
+| 8 | Agent (bg) + Skill (citation-management) | Language polish + final .bib validation |
 
 ---
 
@@ -166,7 +192,7 @@ To prevent context exhaustion, dispose of these files from working memory at the
 
 | Checkpoint | Dispose from Memory | Recovery Method |
 |-----------|-------------------|-----------------|
-| After Phase 2.3 merge | phase2-deep-research.md, phase2-academic-researcher.md, phase2-medical-imaging.md | Read from disk if needed |
+| After Phase 2.3 merge | phase2-deep-research.md, phase2-academic-researcher.md, phase2-medical-imaging.md, phase2-paper-lookup.md | Read from disk if needed |
 | After Phase 3 draft complete | phase2-merged.md | Read from disk if needed |
 | Session 3 startup | Do NOT load phase2-merged.md or Phase 2 agent files | Phase 6 only needs draft + references.bib |
 
@@ -201,10 +227,10 @@ Gate details: Read `references/gate-protocol.md` at the first gate you encounter
 
 | Gate | When | Layer 1 (never skipped) | Layer 2 (normal mode) |
 |------|------|------------------------------|----------------------|
-| GATE 1 | Phase 1 → 2 | phase1-plan.md exists | Plan confirmed |
-| GATE 2 | Phase 3 → S2 | draft + deep-reads + audits. [MISSING]=0, [UNVERIFIED-SOURCE]=0 | Draft reviewed |
-| GATE 3 | Phase 6 → 7 | phase6-factcheck.md exists | Fact-check reviewed |
-| GATE 4 | Phase 7 → rev | reviewer files + merged + phase7-revision-plan.md exist | Consensus + revision plan |
+| GATE 1 | Phase 1 → 2 | phase1-plan.md exists + Scope Boundary + Search Strategy + Quality Target + MCP probe results | Plan confirmed |
+| GATE 2 | Phase 3 → S2 | draft + deep-reads + audits + deep-read-injection. [MISSING]=0, [UNVERIFIED-SOURCE]=0 | Draft reviewed |
+| GATE 3 | Phase 6 → 7 | phase6-factcheck.md + phase6-corrections-applied.md + phase4-validation.md exist | Fact-check reviewed |
+| GATE 4 | Phase 7 → rev | reviewer files + merged + revision-plan + scholar-eval exist | Consensus + revision plan |
 | GATE 5 | Phase 8 → deliv | VERIFICATION_STATUS.md + phase8-style-check.md + PHASE_8_COMPLETE | Final sign-off |
 
 ### Auto-Execute Mode
@@ -246,6 +272,7 @@ Load these when needed, not upfront:
 
 | File | When to Load |
 |------|-------------|
+| `references/anti-laziness.md` | **Before Phase 1** (mandatory pre-read) |
 | `references/phase1-scope.md` | Phase 1 |
 | `references/phase2-research.md` | Phase 2 |
 | `references/phase3-writing.md` | Phase 3 |
@@ -259,5 +286,21 @@ Load these when needed, not upfront:
 | `references/compaction.md` | Compaction fires or context discussion |
 | `references/quality.md` | Quality decisions needed |
 | `references/post-review.md` | After GATE 4 (Post-Review Revision) |
+
+## Integrations
+
+The orchestrator integrates with K-Dense-AI scientific-agent-skills for enhanced capabilities. All are optional — the pipeline runs without them, but quality degrades gracefully.
+
+**Install**: `npx skills add K-Dense-AI/scientific-agent-skills -y`
+
+| Skill | Used In | Role | Fallback if Missing |
+|-------|---------|------|---------------------|
+| paper-lookup | Phase 2 (4th parallel agent) | 10-database unified literature search | Use MCP paper-search only |
+| scientific-critical-thinking | Phase 6 (Step 6.6) | GRADE evidence grading, bias detection, logical fallacy audit | Skip; fact-check alone |
+| peer-review (K-Dense) | Phase 7 (4th reviewer) | CONSORT/STROBE/PRISMA + statistical rigor + ethics | Required (covers dimensions our 3 reviewers don't) |
+| scholar-evaluation | Phase 7.5 | 8-dimension ScholarEval quantitative scoring | Skip; qualitative reviews only |
+
+
+**Requirements**: Python 3.11+, `uv` package manager. All integrated skills are instruction-only (no paid APIs, no code execution required). API keys (NCBI, CORE) are optional and free — not required for basic operation.
 
 **Do NOT pre-read future phase files. Only read the file for the phase you are starting.**

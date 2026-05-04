@@ -36,7 +36,7 @@ Deep reading happens in two rounds with different purposes and scopes. Round 1 h
    - Method categories (what are the main families?)
    - How the field evolved (timeline of key milestones)
    - Which sub-topics are well-covered vs under-explored
-   - Proposed paper section structure
+   - Proposed paper section structure (MUST include a Methodology subsection defining: search period, databases, keywords, inclusion/exclusion criteria, and evidence levels [A]=journal/top-conf, [B]=workshop/lower, [C]=preprint, [D]=grey)
 5. This feeds directly into Step 3.2 (Structural Draft) — the writing skill now knows how to organize the paper
 
 #### Round 2 — Fill in Precise Details (during writing)
@@ -63,13 +63,19 @@ Deep reading happens in two rounds with different purposes and scopes. Round 1 h
 
 **Process**:
 
-#### Step 3.3a: Assess Draft Needs
+#### Step 3.3a: Assess Draft Needs (MANDATORY — produces file)
 1. Review the structural draft systematically. For each section, identify gaps:
    - Approximate numbers needing exact verification
    - Thin method descriptions (missing architecture, training, evaluation details)
    - Missing benchmark comparisons (no specific Dice/HD95 values)
    - Limitations relying on summaries rather than author-stated caveats
 2. List papers that need deep-reading and what specific information is needed from each
+3. **Write `research-output/phase3-deep-read-plan.md`** containing:
+   - Per-section gap analysis
+   - Per-paper: what specific information is needed (exact metric name, architecture component, etc.)
+   - Selection rationale for each paper (which trigger(s) it satisfies)
+   - Estimated number of papers: if 0 → documented no-op with structured checklist (see 3.3c-B)
+   - This file is the GATE 2 dependency that proves the assessment was done, not skipped.
 
 #### Step 3.3b: Execute (or Document No-Op)
 1. Launch 2 agents in parallel (background + file output + disposal):
@@ -97,22 +103,48 @@ If ANY category is answered with a generic statement rather than a specific Phas
 
 **GATE 2 review power**: If the orchestrator judges the no-op assessment insufficient (generic claims without specific Phase 2 evidence), GATE 2 MUST reject it and require Round 2 execution before proceeding.
 
-**GATE 2 dependency**: Before GATE 2, verify `phase3-deep-reads.md` exists. If missing → gate blocked. Gate summary must include: "Round 2: [N] papers deep-read, [M] exact numbers verified, [K] gaps covered by Phase 2".
+**GATE 2 dependency**: Before GATE 2, verify ALL of these exist: `phase3-deep-reads.md`, `phase3-deep-read-plan.md`, `phase3-deep-read-injection.md`. If ANY missing → gate blocked. Gate summary must include: "Round 2: [N] papers deep-read, [M] findings injected, [K] exact numbers verified".
 
 ### Step 3.2: Structural Draft (Write with Structure Knowledge)
 
-Invoke the primary writing skill via the Skill tool:
+Invoke the primary writing skill via the **Skill tool**:
 - MEDICAL strategy → `medical-imaging-review`
 - ACADEMIC or GENERAL strategy → `academic-researcher`
 
-Provide as context: `research-output/phase2-merged.md` + `research-output/phase3-field-structure.md`. Output to `research-output/phase3-draft-v1.md`.
+Provide as context: `research-output/phase2-merged.md` + `research-output/phase3-field-structure.md`.
+Output to `research-output/phase3-draft-v1.md`.
+
+### Writing Methodology (embedded from scientific-writing + research-synthesis)
+
+When invoking the writing skill, pass these additional constraints:
+
+**Outline-first writing** (from scientific-writing):
+1. First, produce a section-level outline with bullet-point key claims per section
+2. Confirm the outline structure before writing full prose
+3. Convert bullet points to flowing paragraphs only after outline is confirmed
+4. No bullet points in the final manuscript (except Methods inclusion/exclusion criteria lists)
+
+**Theme prevalence quantification** (from research-synthesis):
+- For EVERY factual claim that synthesizes multiple sources, quantify prevalence:
+  - "N of M papers reviewed found X" — NOT "many papers found X" or "most papers show X"
+- Example: "5 of 7 studies comparing nnU-Net to SwinUNETR on BTCV found..."
+- This transforms the survey from author opinion to evidence-driven synthesis
+
+**Reporting guideline compliance** (from Phase 1 §5 Quality Target):
+- If PRISMA 2020 was selected: mention the guideline in the Methods section
+- If STROBE was selected: ensure applicable checklist items are addressed
+- Reference the specific guideline by name in the Methodology section
+
+**Input Convention — Source Inventory constraint** (CRITICAL): The Source Inventory in phase2-merged.md is the ONLY allowed reference source. When invoking the writing skill, pass this constraint: every [N] citation must trace to a Source Inventory entry with verified DOI/metadata. Do NOT create references for papers outside the inventory. **If the draft needs to cite a paper not in the Source Inventory**: create a `[NEEDS-SOURCE: Paper Title, Author, Year]` marker in the text instead of inventing a reference number. These markers will be resolved in Phase 4 (Citation Management) by adding the paper to the .bib and the Source Inventory. This prevents the two failure modes: (a) silently omitting citations (creates [MISSING] in audit), and (b) inventing reference numbers for non-existent Source Inventory entries (creates [UNVERIFIED-SOURCE] in audit).
+
+**Composite entry prohibition** (CRITICAL): The Source Inventory must have exactly ONE paper per row. Composite entries like "Various, 2024-2025 [A/B]" covering multiple independent papers are FORBIDDEN. Our test found that composite entries: (a) prevent per-paper evidence grading (different papers have different grades), (b) make specific performance claims unverifiable (which paper's Dice is being cited?), and (c) cause all 3 peer reviewers to independently flag the same citation integrity issue. Each paper cited in the draft MUST have its own Source Inventory row with its own evidence grade [A/B/C/D]. If 4 papers are important enough to cite, they are important enough to each have a row.
 
 ### Step 3.4: Parallel Refinement (3 Agents, Background)
 
 Launch 3 Agent tasks IN A SINGLE MESSAGE with `run_in_background: true`. Each refines the draft on a different, independent dimension:
 
 ```
-Agent A — Prose Quality (academic-writing perspective):
+Agent A — Prose Quality:
   prompt: |
     Read the draft below. Focus ONLY on language quality:
     - Remove hedging soup (every paragraph ≤2 hedging words: potentially, may, might, could, arguably, perhaps)
@@ -122,17 +154,58 @@ Agent A — Prose Quality (academic-writing perspective):
     - Do NOT change structure, facts, citations, or argument. Only language.
     Return the refined prose inline as text.
 
-Agent B — Citation Completeness (literature-review perspective):
-  prompt: |
-    Read the draft below. Focus ONLY on citation coverage:
-    - Are all factual claims backed by a citation?
-    - Are there missing seminal works that should be cited?
-    - Are any citations attributed to the wrong paper?
-    - Check against the merged research notes (phase2-merged.md) for cited-but-not-in-sources
-    Return a checklist: [MISSING] for missing citations, [WRONG] for misattributed, [OK] for correct.
-    Reference claims by their SEMANTIC CONTENT (e.g., "claim: TotalSegmentator Dice 0.943"),
-    NOT by line numbers or exact sentence text. This ensures fixes can be applied after prose refinement.
-    Do NOT rewrite prose. Just return the citation audit.
+Agent B — Citation Structural Integrity Audit:
+
+This is a LIGHTWEIGHT structural check (complementary to Phase 4's deep citation management).
+It catches the most dangerous citation errors early, before the draft proceeds further.
+
+Execute these 3 checks in order. Output a structured report:
+
+**Check 1: Source Inventory Cross-Reference (PRIMARY — catches fabricated references)**
+For EVERY reference [N] in the draft's References section:
+- Find the corresponding entry in phase2-merged.md Source Inventory
+- Verify: same paper title? same authors? same year? same venue?
+- Flag as [UNVERIFIED-SOURCE] if no Source Inventory match exists
+- Flag as [WRONG-METADATA] if inventory match exists but author/year/venue differ
+
+**Check 2: Claim Citation Coverage**
+For each paragraph, check:
+- Every factual claim (numbers, comparisons, attributions) has an inline [N]
+- Every method description cites its source paper
+- Flag as [MISSING] if a factual claim lacks any citation
+
+**Check 3: Attribution Accuracy**
+For claims that cite specific papers, verify:
+- Does the cited paper actually say what the claim asserts?
+- Is the paper being cited for the right finding? (e.g., nnU-Net Revisited for "no architecture surpasses")
+- Flag as [MISATTRIBUTED] if claim doesn't match what the cited paper says
+
+**Check 4: Source Count Verification**
+- Find the claimed source count in the draft (e.g., "70 sources" in Introduction)
+- Count actual [N] entries in the References section
+- If >20% gap → flag [SOURCE-COUNT-MISMATCH: claimed N, actual M]
+
+**Check 5: Dangling Named Citations**
+- Scan for named citations WITHOUT [N] brackets (e.g., "Chattopadhyay et al., 2025")
+- Every named citation must resolve to a numbered reference
+- Flag unresolved as [DANGLING-CITATION: name, year]
+
+Output format:
+```
+## Citation Structural Integrity Audit
+### Check 1: Source Inventory Cross-Reference
+[N] entries checked. [X] [UNVERIFIED-SOURCE], [Y] [WRONG-METADATA]
+### Check 2: Claim Citation Coverage
+[X] paragraphs checked. [Y] [MISSING] citations
+### Check 3: Attribution Accuracy
+[X] claims checked. [Y] [MISATTRIBUTED]
+### Check 4: Source Count
+Claimed [N] sources. [M] references listed. [SOURCE-COUNT-MISMATCH] if >20% gap.
+### Check 5: Dangling Citations
+[X] named citations without [N]. [Y] [DANGLING-CITATION]
+```
+Reference claims by SEMANTIC CONTENT, not line numbers.
+Do NOT rewrite prose. Just return the structured audit.
 
 Agent C — Data & Licensing Audit (medical-imaging domain focus):
   prompt: |
@@ -175,7 +248,24 @@ All 3 agents run in parallel on the same v1 draft for wall-clock speed.
 
 **Merge order** (sequential application, parallel execution):
 
-When all 3 agents complete:
+**Step 0: Deep Read Injection (MANDATORY — runs BEFORE Agent A/B/C merge)**
+
+This step bridges the gap between Round 2 deep reads and the refinement pass. Deep-read findings are often discovered but never applied to the draft — this step forces application.
+
+1. Read `research-output/phase3-deep-reads.md` from disk
+2. For each paper's findings, identify where in the draft the finding applies:
+   - Exact numbers → replace approximate values in tables and text
+   - Method details → enrich thin architecture descriptions
+   - Author-stated limitations → add to Limitations paragraphs
+   - Verified metrics → add to comparison tables
+3. Apply all corrections to the draft
+4. Write `research-output/phase3-deep-read-injection.md` listing:
+   - Per-paper: what was injected and where (section, claim)
+   - Any findings NOT injected (with reason: "already present", "out of scope", etc.)
+   - Count of numbers corrected, details added, limitations inserted
+5. This file is a **GATE 2 Layer 1 dependency** — its absence means deep-read findings were never applied
+
+When all 3 refinement agents AND deep-read injection complete:
 1. **Apply Agent A's prose refinements** to v1 → `phase3-draft-v2.md`
    (A returns full rewritten prose — this is canonical)
 2. **Apply Agent B's citation fixes** to v2 → `phase3-draft-v3.md`:
@@ -281,5 +371,17 @@ Save to `research-output/phase3-code-audit.md`. Add key findings (GPU requiremen
 
 **Why not use `figure-generation` skill?** It has a failed security audit (Gen Agent Trust Hub: FAIL) and 137 installs. Claude can write matplotlib code directly if a new figure is needed — no skill required.
 
+
+**GATE 2 summary format** (user-facing):
+```
+── GATE 2: Draft Review ──
+Draft: [N] words, [M] references. Round 2: [N] papers deep-read, [M] exact numbers verified.
+Citation audit: [N] MISSING, [M] UNVERIFIED-SOURCE.
+Data audit: [N]/[M] datasets with explicit license.
+[Proceed] / [Review draft]
+```
+
 ### GATE 2: Present the draft summary to the user. "Draft complete — [N] words, [M] sources. Round 2: [N] papers deep-read, [M] exact numbers verified, [K] gaps covered by Phase 2. Citation audit: [N] missing, [M] misattributed (all fixed). Review before verification?" Do NOT proceed until the user confirms. If `phase3-deep-reads.md` does not exist, GATE 2 MUST NOT be presented — go back to Step 3.3.
+
+**Before GATE 2, run**: `bash scripts/validate.sh GATE_2 research-output/`. If exit ≠ 0 → fix all FAIL items → re-run → repeat until clean. Only then present the gate to the user.
 

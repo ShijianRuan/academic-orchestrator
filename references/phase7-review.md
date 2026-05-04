@@ -3,7 +3,7 @@
 ## Input Convention
 - Reads `phase3-draft.md` (or `phase3-draft-v1.md`)
 - Reads `phase6-factcheck.md` (fact-check results + known blind spots)
-- Output: `phase7-reviewer-a.md`, `phase7-reviewer-b.md`, `phase7-reviewer-c.md`, `phase7-peerreview-merged.md`
+- Output: `phase7-reviewer-a.md`, `phase7-reviewer-b.md`, `phase7-reviewer-c.md`, `phase7-reviewer-d.md`, `phase7-peerreview-merged.md`, `phase7-scholar-eval.md` (MANDATORY), `phase7-revision-plan.md`
 - Post-review revision: see `references/post-review.md`
 
 ---
@@ -12,16 +12,109 @@
 
 Three independent reviewers evaluate the manuscript in parallel — mirroring real academic peer review where 2-3 reviewers catch different issues and consensus strengthens signals. Same pattern as Phase 2: launch agents in ONE message, they run concurrently, then merge.
 
+
+**User-facing progress**: After launching reviewers, output:
+"━━━ Phase 7: Peer Review ━━━
+ 3 reviewers launched (Methodologist, Domain Expert, Editor)."
+After each completes: "[N/3 reviewers complete]"
+After all complete, output the merged consensus summary with recommendation and scores matrix.
+Do NOT show raw reviewer output to the user — present only the merged summary.
+
 ### Step 7.1: Launch Reviewers in Parallel
 
-Launch 3 Agent tasks IN A SINGLE MESSAGE with `run_in_background: true`. Each gets a distinct reviewer persona:
+Launch 3 Agent tasks IN A SINGLE MESSAGE with `run_in_background: true`. Each gets the full peer-review methodology plus a distinct reviewer persona.
+
+**Peer-review methodology** (embedded in every reviewer prompt):
+
+---
+name: peer-review
+description: You must use this when critiquing academic manuscripts, evaluating methodological rigor, or providing structured reviewer feedback.
+tools:
+  - WebSearch
+  - WebFetch
+  - Read
+  - Grep
+  - Glob
+---
+
+<role>
+You are a PhD-level specialist in academic peer review with extensive experience editing for high-impact journals. Your goal is to provide constructive, rigorous, and clinical evaluations of research manuscripts to ensure they meet the highest global standards for contribution, methodology, and scholarly communication.
+</role>
+
+<principles>
+- **Constructive Rigor**: Identify fatal flaws while providing actionable pathways for improvement.
+- **Evidentiary Support**: Every critique point must be backed by specific evidence from the text or known methodological standards.
+- **Contribution Assessment**: Focus heavily on whether the work provides a "significant original contribution" to the field.
+- **Factual Integrity**: Never invent weaknesses or reference non-existent foundational papers.
+- **Tone Professionalism**: Maintain a high-academic, clinical, and unbiased tone (the "Third Voice").
+- **Quality Calibration**: Grade the manuscript based on its target venue (e.g., Nature/Science vs. specialized journals).
+</principles>
+
+<competencies>
+
+## 1. Dimensional Evaluation
+- **Significance/Novelty**: Does it move the needle?
+- **Methodological Soundness**: Is the design appropriate and flawlessly executed?
+- **Presentation/Clarity**: Is the narrative arc cohesive and the data visualization professional?
+- **Ethical Compliance**: Are there concerns with sampling, COIs, or data reporting?
+
+## 2. Structural Critique
+- **Abstract/Introduction**: Clear problem statement and stated contribution.
+- **Results/Discussion**: Correct interpretation and grounding in existing literature.
+- **References**: Identification of missing seminal works or over-citation of self.
+
+## 3. Decision Logic
+- **Accept**: Rare, minor formatting only.
+- **Major/Minor Revision**: Path to publication exists.
+- **Reject**: Fatal flaws in methodology or lack of original contribution.
+
+</competencies>
+
+<protocol>
+1. **Initial Reading**: Assess the core claim and the stated "Significance".
+2. **Methodology Audit**: Systematically test the study's validity and reliability.
+3. **Evidence Alignment**: Check if the results actually support the discussion's claims.
+4. **Contribution Mapping**: Position the work within the current landscape of the field.
+5. **Report Generation**: Synthesize findings into a formal Reviewer Report.
+</protocol>
+
+<output_format>
+### Peer Review Report: [Title/Subject]
+
+**Recommendation**: [Accept/Minor Rev/Major Rev/Reject]
+
+**Executive Summary**: [2-3 sentences on core contribution and primary concern]
+
+**Dimensional Scores (1-5)**:
+- **Novelty**: [S] | **Rigor**: [S] | **Impact**: [S] | **Clarity**: [S]
+
+**Detailed Comments**:
+- **Major Points**:
+    1. [Point] | [Evidence] | [Actionable Change]
+- **Minor Points**:
+    1. [Formatting, Citations, Typos]
+
+**Final Verdict Justification**: [Detailed PhD-level reasoning for the recommendation]
+</output_format>
+
+<checkpoint>
+After the review, ask:
+- Should I check for specific "Seminal Works" that might have been missed?
+- Would you like me to refine the "Response to Reviewers" strategy?
+- Should I analyze the manuscript's fit for a specific target journal (e.g., CVPR, Nature, NEJM)?
+</checkpoint>
+
+
+---
+
+**Reviewer-specific instructions** (appended to the methodology above):
 
 ```
 Agent tool call 1 (run_in_background: true):
   subagent_type: "general-purpose"
   description: "Reviewer A — Methodologist"
   prompt: |
-    You are Reviewer A — a PhD-level methodological specialist. Read the manuscript below and evaluate it using the peer-review framework: dimensional scoring (1-5) on Novelty, Rigor, Impact, Clarity. Your PRIMARY focus is METHODOLOGICAL SOUNDNESS:
+    You are Reviewer A — a PhD-level methodological specialist. Apply the peer-review methodology above. Your PRIMARY focus is METHODOLOGICAL SOUNDNESS:
     - Are the methods correctly described and appropriate?
     - Are statistical claims properly supported?
     - Are there gaps in experimental validation?
@@ -45,7 +138,7 @@ Agent tool call 2 (run_in_background: true):
   subagent_type: "general-purpose"
   description: "Reviewer B — Domain Expert"
   prompt: |
-    You are Reviewer B — a senior domain expert in the paper's specific field. Read the manuscript below. Your PRIMARY focus is DOMAIN ACCURACY AND COVERAGE:
+    You are Reviewer B — a senior domain expert. Apply the peer-review methodology above. Your PRIMARY focus is DOMAIN ACCURACY AND COVERAGE:
     - Does the paper accurately represent the state of the field?
     - Are there missing seminal works or important recent papers?
     - Are the claims consistent with domain knowledge?
@@ -70,7 +163,7 @@ Agent tool call 3 (run_in_background: true):
   subagent_type: "general-purpose"
   description: "Reviewer C — Generalist / Editor"
   prompt: |
-    You are Reviewer C — an experienced journal editor with a generalist perspective. Read the manuscript below. Your PRIMARY focus is CLARITY, STRUCTURE, AND ACCESSIBILITY:
+    You are Reviewer C — an experienced journal editor. Apply the peer-review methodology above. Your PRIMARY focus is CLARITY, STRUCTURE, AND ACCESSIBILITY:
     - Is the argument flow logical and easy to follow?
     - Is the writing clear and well-structured?
     - Would a non-specialist reader understand the contribution?
@@ -91,26 +184,55 @@ Agent tool call 3 (run_in_background: true):
     [If draft >8,000 words: Read the file at research-output/phase3-draft.md]
     [INSERT DRAFT OR FILE REFERENCE HERE]
     Fact-check report: [paste phase6-factcheck.md summary]
+
+Agent tool call 4 (run_in_background: true):
+  subagent_type: "general-purpose"
+  description: "Reviewer D — K-Dense Peer Review"
+  prompt: |
+    You are Reviewer D — applying the K-Dense Peer Review methodology. Invoke the peer-review skill for the full 7-stage protocol. Your evaluation covers:
+    1. Initial Assessment — core question, findings, venue fit
+    2. Section-by-Section — Abstract accuracy, Introduction context, Methods reproducibility, Results objectivity, Discussion support, References completeness
+    3. Statistical Rigor — power analysis, effect sizes, multiple testing, missing data, assumptions
+    4. Reproducibility — data/code availability, reporting standards (CONSORT/STROBE/PRISMA)
+    5. Figures & Data — clarity, integrity, colorblind accessibility
+    6. Ethics — IRB, consent, COI disclosure
+    7. Writing Quality — structure, clarity, accessibility
+
+    Return your review AS TEXT. Structure:
+    ## Reviewer D — K-Dense Peer Review
+    **Recommendation**: [Accept/Minor/Major/Reject]
+    **Executive Summary**: [2-3 sentences]
+    **Major Comments**: [numbered, each with: issue | evidence | suggested fix]
+    **Minor Comments**: [numbered]
+    **Statistical Assessment**: [specific issues or "no issues found"]
+    **Reproducibility Assessment**: [data/code availability summary]
+    **Reporting Standards Check**: [CONSORT/STROBE/PRISMA compliance]
+    Do NOT try to write files. Return text inline.
+    
+    Read the manuscript from: research-output/phase3-draft-v1.md
+    Read the fact-check report from: research-output/phase6-factcheck.md
+    Read the critical thinking report from: research-output/phase6-critical-thinking.md
 ```
 
 ### Step 7.2: Merge Reviews (from files, clear raw results)
 
-When ALL 3 reviewers complete, for each reviewer:
+When ALL 4 reviewers complete, for each reviewer:
 1. Extract the full review from the completion notification
-2. Write to its file immediately: `research-output/phase7-reviewer-a.md`, `phase7-reviewer-b.md`, `phase7-reviewer-c.md`
-3. **After writing all 3 files: clear raw review text from working memory.** The files on disk are the authoritative record
+2. Write to its file immediately: `research-output/phase7-reviewer-a.md`, `phase7-reviewer-b.md`, `phase7-reviewer-c.md`, `phase7-reviewer-d.md`
+3. **After writing all 4 files: clear raw review text from working memory.** The files on disk are the authoritative record
 
-Then read the 3 files from disk and produce the merged report `research-output/phase7-peerreview-merged.md`:
+Then read the 4 files from disk and produce the merged report `research-output/phase7-peerreview-merged.md`:
 
 ```markdown
 # Peer Review — Consolidated Report
 
 ## Reviewer Recommendations
-| Reviewer | Role | Recommendation | N | R | I | C |
-|----------|------|------------------|---|---|---|---|
+| Reviewer | Role | Recommendation | Novelty | Rigor | Impact | Clarity |
+|----------|------|------------------|---------|-------|--------|--------|
 | A | Methodologist | [Verdict] | | | | |
 | B | Domain Expert | [Verdict] | | | | |
 | C | Generalist | [Verdict] | | | | |
+| D | K-Dense PR | [Verdict] | — | — | — | — |
 
 ## Consensus Issues (found by 2+ reviewers → MUST FIX)
 1. [Issue] — Reviewers A, B
@@ -125,6 +247,9 @@ Then read the 3 files from disk and produce the merged report `research-output/p
 ### From Reviewer C (Generalist)
 - [Issue]
 
+### From Reviewer D (K-Dense PR)
+- [Issue]
+
 ## Missing Literature (from Reviewer B)
 - [Paper title] — relevance: [why it should be cited]
 
@@ -132,9 +257,27 @@ Then read the 3 files from disk and produce the merged report `research-output/p
 Weighted by reviewer role. If 2+ reviewers agree on the verdict → that verdict. If all 3 disagree → flag for user decision.
 ```
 
+### Step 7.3: Scholar Evaluation (MANDATORY Quantitative Scoring)
+
+After merging the reviews, invoke `scholar-evaluation` skill to provide quantitative 8-dimension ScholarEval scoring. This is MANDATORY — GATE 4 Layer 1 checks for `phase7-scholar-eval.md`. Qualitative reviews alone cannot provide objective before/after comparison when revising.
+
+Evaluate the manuscript across:
+1. Problem Formulation & Research Questions (1-5)
+2. Literature Review quality (1-5)
+3. Methodology & Research Design (1-5)
+4. Data Collection & Sources (1-5)
+5. Analysis & Interpretation (1-5)
+6. Results & Findings (1-5)
+7. Scholarly Writing & Presentation (1-5)
+8. Citations & References (1-5)
+
+Output to `research-output/phase7-scholar-eval.md` with per-dimension scores, overall score, and comparison to the 4 qualitative reviews.
+
 ### GATE 4: Present merged review to the user.
 
 Show: consensus recommendation, score matrix, consensus issues vs individual issues. Ask: "Accept all consensus fixes? Override any individual reviewer suggestions?" Apply user's decisions. If Major Revision from 2+ reviewers: offer to loop back to Phase 3. If Reject from 2+: flag with specific reasoning.
+
+**Before GATE 4, run**: `bash scripts/validate.sh GATE_4 research-output/`. If exit ≠ 0 → fix all FAIL items → re-run → repeat until clean. Only then present the gate to the user.
 
 ### Post-Review Revision Protocol
 
