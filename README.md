@@ -1,103 +1,66 @@
-# Academic Orchestrator v5.2.0
+# Academic Orchestrator v6.3.0
 
-Multi-phase academic research and writing orchestrator for Claude Code. Two paths: RESEARCH-ONLY (single session, produces a research digest) and FULL PIPELINE (3 sessions, produces a verified, peer-reviewed paper).
+Multi-phase academic research and writing orchestrator for Claude Code. Chains 12 specialist skills through an 8-phase quality-gated pipeline to produce verified, peer-reviewed papers from a single topic prompt.
 
-## Quick Install
-
-### Option A: From GitHub (recommended)
+## Quick Start
 
 ```bash
-# 1. Install the orchestrator skill via npx skills add
-npx skills add <github-username>/academic-orchestrator -g -y
-
-# 2. Install all dependency skills
-bash ~/.claude/skills/academic-orchestrator/INSTALL.sh
-
-# 3. Configure MCP servers in ~/.claude.json (see MCP Setup below)
-#    Then restart Claude Code
-```
-
-### Option B: From local copy
-
-```bash
-cp -r academic-orchestrator ~/.claude/skills/
+npx skills add ShijianRuan/academic-orchestrator -g -y
 bash ~/.claude/skills/academic-orchestrator/INSTALL.sh
 ```
 
-## Dependencies
-
-### Skills (auto-installed by INSTALL.sh)
-| Skill | Install Command | Required For |
-|-------|----------------|-------------|
-| deep-research | `anthropics/skills@deep-research` | Phase 2 web search |
-| academic-researcher | `shubhamsaboo/awesome-llm-apps@academic-researcher` | Phase 3 writing |
-| medical-imaging-review | (user custom, copy separately) | Phase 2/3 MEDICAL strategy |
-| citation-management | `davila7/claude-code-templates@citation-management` | Phase 4 citations |
-| latex-paper-en | `bahayonghang/academic-writing-skills@latex-paper-en` | Phase 5 LaTeX |
-| fact-check | `jwynia/agent-skills@fact-check` | Phase 6 verification |
-| peer-review | `poemswe/co-researcher@peer-review` | Phase 7 review |
-| literature-review | `eyadsibai/ltk@literature-review` | Phase 1/3.2 methodology |
-| academic-writing | `poemswe/co-researcher@academic-writing` | Phase 3.2 prose |
-| writing-clearly-and-concisely | `obra/the-elements-of-style@writing-clearly-and-concisely` | Phase 8 polish |
-
-### MCP Servers (manual configuration in ~/.claude.json)
-| Server | Purpose | Config |
-|--------|---------|--------|
-| firecrawl | Web search + scraping | `mcpServers.firecrawl` (HTTP) |
-| exa | Semantic web search | `mcpServers.exa` (HTTP) |
-| semantic-scholar | Citation graph traversal | `mcpServers.semantic-scholar` (stdio: `aira-semanticscholar`) |
-
-MCP config example in `~/.claude.json`:
-```json
-{
-  "mcpServers": {
-    "firecrawl": { "type": "http", "url": "https://mcp.firecrawl.dev/..." },
-    "exa": { "type": "http", "url": "https://mcp.exa.ai/mcp?exaApiKey=..." },
-    "semantic-scholar": {
-      "type": "stdio",
-      "command": "/opt/homebrew/bin/aira-semanticscholar",
-      "args": [],
-      "env": {}
-    }
-  }
-}
-```
-
-## Usage
+Then restart Claude Code and run:
 
 ```
 /academic-orchestrator
 ```
 
-Or: "Use the academic orchestrator to research [topic]"
+## What It Does
 
-## File Structure
+| Phase | What Happens |
+|-------|-------------|
+| 1 | Clarifies scope, formulates research questions, probes MCP availability |
+| 2 | Launches 4 parallel search agents (web, academic, domain, multi-database) |
+| 3 | Writes a structured draft with deep-read injection and parallel refinement |
+| 4 | Validates citations, checks retractions, generates BibTeX |
+| 5 | Converts to LaTeX with self-healing compilation |
+| 6 | Fact-checks every claim against sources + adversarial verification |
+| 7 | 4 parallel peer reviewers + ScholarEval scoring |
+| 8 | Language polish + final output package |
 
+Two paths: **RESEARCH-ONLY** (single session, produces a research digest) or **FULL PIPELINE** (3 sessions, produces a verified paper).
+
+## MCP Server Setup
+
+Add to `~/.claude.json`:
+
+```json
+{
+  "mcpServers": {
+    "exa": {
+      "type": "http",
+      "url": "https://mcp.exa.ai/mcp?exaApiKey=YOUR_KEY"
+    },
+    "semantic-scholar": {
+      "type": "stdio",
+      "command": "/opt/homebrew/bin/aira-semanticscholar"
+    },
+    "arxiv-mcp-server": {
+      "type": "stdio",
+      "command": "python3",
+      "args": ["-m", "arxiv_mcp_server"]
+    },
+    "pubmed-mcp-server": {
+      "type": "stdio",
+      "command": "python3",
+      "args": ["-m", "pubmedmcp"]
+    }
+  }
+}
 ```
-academic-orchestrator/
-  SKILL.md       — The orchestrator (self-contained)
-  README.md      — This file
-  INSTALL.sh     — One-command dependency installer
-```
 
-## Migration
+Optional: `firecrawl` (HTTP), `paper-search` (stdio, for Google Scholar), `zotero` (stdio, for personal library).
 
-To move to another machine:
-1. Copy this directory to `~/.claude/skills/academic-orchestrator/`
-2. Run `bash INSTALL.sh`
-3. Configure MCP servers in `~/.claude.json`
-4. Restart Claude Code
+## Architecture
 
-## Sharing
-
-To share with others:
-1. Zip this directory: `zip -r academic-orchestrator-v5.2.0.zip academic-orchestrator/`
-2. Share the zip + the MCP config example
-3. Recipient unzips to `~/.claude/skills/`, runs INSTALL.sh, configures MCP
-
-## Version History
-- v5.2.0: Self-healing LaTeX compilation loop (max_retries=3)
-- v5.1.0: Data & Licensing audit (Agent C in Phase 3.2)
-- v5.0.0: Multi-pass writing (serial draft + parallel refinement ×3)
-- v4.x: RESEARCH-ONLY path, multi-reviewer, adversarial verification
-- v1-3: Initial architecture, context budget, session splitting
+See [ARCHITECTURE.md](ARCHITECTURE.md) for pipeline diagrams, MCP tool strategy, and skill dispatch matrix.

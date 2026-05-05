@@ -18,3 +18,9 @@ research-output/
 *.swp
 *.swo
 *~
+
+# Internal caches (not user-facing)
+.agents/
+.claude/
+.trae/
+skills-lock.json
