@@ -1,4 +1,4 @@
-# Academic Orchestrator v6.3.0 — Architecture
+# Academic Orchestrator — Architecture
 
 ## Pipeline Overview
 
@@ -29,67 +29,52 @@ flowchart TB
     G5 --> Output["manuscript.pdf + VERIFICATION_STATUS.md"]
 ```
 
-## Phase 2: Parallel Research Detail
+## Phase 2: Parallel Research
 
 ```mermaid
 flowchart LR
     Plan["phase1-plan.md"] --> A1 & A2 & A3 & A4
 
     subgraph Agents["4 Parallel Agents"]
-        A1["deep-research<br/>Exa + Firecrawl<br/>Web / News / Industry"]
-        A2["academic-researcher<br/>S2 + arXiv + PubMed + Scholar<br/>Multi-source Academic"]
-        A3["medical-imaging<br/>arxiv + pubmed + zotero<br/>Domain Full-text + Zotero"]
-        A4["paper-lookup<br/>10 Databases<br/>Cross-DB Verification + OA"]
+        A1["deep-research<br/>Web / News / Industry"]
+        A2["academic-researcher<br/>Multi-source Academic"]
+        A3["medical-imaging<br/>Domain Literature (MEDICAL)"]
+        A4["paper-lookup<br/>Cross-Database Verification"]
     end
 
-    A1 & A2 & A3 & A4 --> PRISMA["PRISMA Flow Documentation"]
+    A1 & A2 & A3 & A4 --> PRISMA["PRISMA Flow"]
     PRISMA --> Merge["Cross-Validation & Merge"]
-    Merge --> Chain["Citation Chaining (S2 MCP)"]
+    Merge --> Chain["Citation Chaining"]
     Chain --> phase2merged["phase2-merged.md"]
 ```
 
-## MCP Tool Strategy (v6.3)
+## MCP Tool Strategy
 
-```mermaid
-flowchart TB
-    subgraph Principle["Design Principle"]
-        P["Skill defines tools. Orchestrator does NOT override."]
-    end
+**Principle**: Each agent uses the tools defined by its own skill. The orchestrator provides search guidance but does not override tool choices.
 
-    subgraph DR["deep-research"]
-        DR_T["Skill SKILL.md → Exa + Firecrawl"]
-    end
+| Agent | Tools Defined By | Primary Tools |
+|-------|-----------------|---------------|
+| deep-research | skill SKILL.md | Exa + Firecrawl |
+| academic-researcher | orchestrator prompt | S2 + arXiv + PubMed + Scholar |
+| medical-imaging | skill allowed-tools | arxiv + pubmed + zotero |
+| paper-lookup | orchestrator prompt | 10-database REST APIs |
 
-    subgraph AR["academic-researcher"]
-        AR_T["Orchestrator prompt → S2 + arXiv + PubMed + Scholar"]
-        AR_P["PubMed: BOTH pubmed-mcp-server AND paper-search-pubmed"]
-    end
-
-    subgraph MI["medical-imaging"]
-        MI_T["Skill allowed-tools → arxiv + pubmed + zotero"]
-        MI_N["NOT paper-search MCPs (was override, now fixed)"]
-    end
-
-    subgraph PL["paper-lookup"]
-        PL_T["Orchestrator prompt → 10 REST APIs"]
-    end
-
-    subgraph WS["WebSearch Status"]
-        WS_A["Anthropic API → ✅ works"]
-        WS_D["DeepSeek API → ❌ broken (v2.1.126 deferred tools)"]
-        WS_F["Fix: Exa MCP replaces WebSearch everywhere"]
-    end
-```
-
-## Tool Choice Matrix
+### Tool Choice Matrix
 
 | Purpose | Primary | Fallback |
 |---------|---------|----------|
 | arXiv | `arxiv-mcp-server` | Semantic Scholar |
-| PubMed | `pubmed-mcp-server` | `paper-search` PubMed |
+| PubMed | `pubmed-mcp-server` + `paper-search` PubMed | Exa web search |
 | Google Scholar | `paper-search` | — (unique) |
-| General Web | Exa MCP | Firecrawl (quota) |
+| General Web | Exa MCP | Firecrawl |
 | Semantic Academic | Semantic Scholar | Exa web search |
+
+### Compatibility
+
+| Model | WebSearch | MCP Tools |
+|-------|-----------|-----------|
+| Anthropic (Claude) | ✅ | ✅ |
+| DeepSeek | ❌ (use Exa instead) | ✅ |
 
 ## Phase 3: Multi-Pass Writing
 
@@ -139,11 +124,11 @@ flowchart LR
 |-------|-------|--------|
 | 1 | literature-review | Skill + Agent |
 | 2 | deep-research, academic-researcher, medical-imaging, paper-lookup | Agent (bg) x4 |
-| 3.2 | medical-imaging-review | Skill (writing) |
-| 3.4 | — | Agent (bg) x3 (prose, citation, data) |
-| 4 | citation-management | Skill + orchestrator additions |
-| 5 | latex-paper-en | Skill + Bash |
-| 6 | fact-check + scientific-critical-thinking | Skill + orchestrator additions |
+| 3.2 | medical-imaging-review | Skill |
+| 3.4 | — | Agent (bg) x3 |
+| 4 | citation-management | Skill |
+| 5 | latex-paper-en | Skill |
+| 6 | fact-check + scientific-critical-thinking | Skill |
 | 7 | peer-review (4 reviewers) | Agent (bg) x4 |
 | 7.5 | scholar-evaluation | Skill |
 | 8 | citation-management + writing-clearly-and-concisely | Skill + Agent (bg) |
@@ -152,42 +137,18 @@ flowchart LR
 
 ```
 skills/
-├── deep-research/          — Exa + Firecrawl web search
-├── academic-researcher/    — Paper analysis methodology
-├── medical-imaging-review/ — 7-phase medical imaging writing
-├── citation-management/    — BibTeX + validation
-├── fact-check/             — 4-phase verification
-├── peer-review/            — Structured manuscript review
-├── literature-review/      — Systematic review methodology
-├── writing-clearly-and-concisely/ — Strunk language polish
-└── latex-paper-en/         — LaTeX compilation + formatting
+├── deep-research/                 — Web search (Exa + Firecrawl)
+├── academic-researcher/           — Paper analysis methodology
+├── medical-imaging-review/        — 7-phase medical imaging writing
+├── citation-management/           — BibTeX + validation
+├── fact-check/                    — 4-phase verification
+├── peer-review/                   — Structured manuscript review
+├── literature-review/             — Systematic review methodology
+├── writing-clearly-and-concisely/ — Language polish
+├── latex-paper-en/                — LaTeX compilation
+├── paper-lookup/                  — 10-database unified search
+├── scientific-critical-thinking/  — Evidence grading + bias detection
+└── scholar-evaluation/            — 8-dimension quantitative scoring
 ```
 
-## Compatibility
-
-| Model | WebSearch | MCP Tools | Notes |
-|-------|-----------|-----------|-------|
-| Anthropic (Claude) | ✅ | ✅ | Full native support |
-| DeepSeek (v4-pro) | ❌ | ✅ | WebSearch replaced by Exa MCP |
-
-## Installation
-
-```bash
-npx skills add ShijianRuan/academic-orchestrator -g -y
-bash ~/.claude/skills/academic-orchestrator/INSTALL.sh
-```
-
-## External Skills (npx skills registry)
-
-These skills are installed via `npx skills add` and stored in Claude Code's internal registry (NOT in `~/.claude/skills/`). They are available at runtime but SKILL.md files are not accessible for bundling.
-
-| Skill | Source | Fallback if Missing |
-|-------|--------|---------------------|
-| paper-lookup | K-Dense-AI/scientific-agent-skills | Use MCP paper-search only |
-| scientific-critical-thinking | K-Dense-AI/scientific-agent-skills | Skip; fact-check alone |
-| scholar-evaluation | K-Dense-AI/scientific-agent-skills | Skip; qualitative reviews only |
-
-Install:
-```bash
-npx skills add K-Dense-AI/scientific-agent-skills -g -y
-```
+Skills 10-12 are from [K-Dense-AI/scientific-agent-skills](https://github.com/K-Dense-AI/scientific-agent-skills). They are bundled here for portability but can also be installed independently via `npx skills add K-Dense-AI/scientific-agent-skills -g -y`.
