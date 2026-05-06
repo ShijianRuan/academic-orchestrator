@@ -71,7 +71,7 @@ All skills run within Claude Code's default Bash sandbox when tools are invoked.
 At Phase 1 (scope), check if K-Dense skills are installed:
 
 ```bash
-ls ~/Downloads/.agents/skills/paper-lookup/SKILL.md 2>/dev/null && echo "K-Dense: AVAILABLE" || echo "K-Dense: NOT INSTALLED"
+ls ~/.claude/skills/paper-lookup/SKILL.md 2>/dev/null && echo "K-Dense: AVAILABLE" || echo "K-Dense: NOT INSTALLED"
 ```
 
 Record availability in `phase1-plan.md` under MCP Status. The dispatch matrix handles both paths — if installed, use enhanced path; if not, use default path.
